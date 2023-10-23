@@ -1,5 +1,75 @@
-# Restore Operations Center or Master from Backup
-This script is designed to perform a restoration of a Operations Center or Master instance in CloudBees Core modern.
+# Backup and restore cloudbees-ci
+
+see CloudBees documentation here
+
+* https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/cloudbees-backup-plugin
+* https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/
+* https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/kubernetes
+* https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/backup-manually
+* https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/restoring-from-backup-plugin
+
+
+# Pre-requirements
+
+```
+export AWS_ACCESS_KEY_ID="YOUR_AWS_KEY"
+export AWS_SECRET_ACCESS_KEY="YOUR_AWS_SECRET"
+export AWS_DEFAULT_REGION=YOUR_AWS_REGION
+export KUBECONFIG=PATH_TO_KUBECONFIG
+```
+
+
+
+## Create S3 Backup Bucket
+
+see https://docs.aws.amazon.com/AmazonS3/latest/userguide/creating-bucket.html
+
+## Create Bucket Policy
+In AWS console (or use aws cli)
+> IAM -> Policies -> YOUR_S3_POLICY
+
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": "arn:aws:s3:::YOURBUCKET/*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": "s3:ListBucket",
+            "Resource": "arn:aws:s3:::YOURBUCKET"
+        }
+    ]
+}
+```
+## Create User
+> IAM -> Users -> YOURUSER
+
+> IAM -> Users -> YOURUSER -> Add permissions -> Attach policies directly
+
+> Assign YOURUSER to the S3 policy
+
+## Create AWS Key
+> IAM -> Users -> YOURUSER -> Access keys > Create access key
+
+Then Add exported keys to Jenkins Credentials store and assign to the Backup-job and/or setCreds.sh
+
+
+# Create Backup for Operations Center or Controller in S3
+
+Option1: Use the CloudBees Backup Plugin, see https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/cloudbees-backup-plugin
+Option2: Use the `backup.sh` script
+
+
+# Restore Operations Center or Controller from Backup
+This script `restore.sh` is designed to perform a restoration of a Operations Center or Controller instance in CloudBees Core modern.
 It follows the process outlined in documentation: https://docs.cloudbees.com/docs/admin-resources/latest/backup-restore/restoring-manually
 
 
@@ -10,7 +80,7 @@ It follows the process outlined in documentation: https://docs.cloudbees.com/doc
 - AWS access from the local command line must have access to download from the associated/configured S3 bucket containing the backup file.
 - The rescue container must have the tar command tool installed.
 - The rescue container must have privileges to change ownership and permissions of files in the /tmp directory.
-- The rescue container must be able to mount the cjoc or master persistent volume.
+- The rescue container must be able to mount the Cjoc or Controller persistent volume.
 
 ## Run
 Configure the config file and run this script using `bash restore.sh`.
