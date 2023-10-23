@@ -68,8 +68,8 @@ Then Add exported keys to Jenkins Credentials store and assign to the Backup-job
 
 # Create Backup for Operations Center or Controller in S3
 
-Option1: Use the CloudBees Backup Plugin, see https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/cloudbees-backup-plugin
-Option2: Use the `backup.sh` script
+* Option1: Use the CloudBees Backup Plugin, see https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/cloudbees-backup-plugin
+* Option2: Use the `backup.sh` script
 
 
 # Restore Operations Center or Controller from Backup
