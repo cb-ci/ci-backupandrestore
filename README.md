@@ -1,6 +1,8 @@
 # Backup and restore cloudbees-ci
 
-see CloudBees documentation here
+This repo is about scripted approaches for backup and restore on/from AWS S3 for CloudBees CI on AWS EKS
+
+see CloudBees documentation here for background:
 
 * https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/cloudbees-backup-plugin
 * https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/
@@ -9,9 +11,11 @@ see CloudBees documentation here
 * https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/restoring-from-backup-plugin
 
 
+
 # Pre-requirements
 
 ```
+
 export AWS_ACCESS_KEY_ID="YOUR_AWS_KEY"
 export AWS_SECRET_ACCESS_KEY="YOUR_AWS_SECRET"
 export AWS_DEFAULT_REGION=YOUR_AWS_REGION
