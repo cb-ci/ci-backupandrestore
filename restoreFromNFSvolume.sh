@@ -4,7 +4,7 @@ set -e
 
 namespace="cloudbees-core" #Kubernetes namespace where CB CI is deployed.
 instanceStatefulsetName="mycontroller" #The statefulset name of the OC or master you want to restore.
-restoreFile="backup-backup-1.tar.gz" #Path to the tar.gz backup file on the local directory
+restoreFile="backup-backup-1.tar.gz" #Path to the tar.gz backup file on the backup volume directory
 rescueContainerImage="governmentpaas/awscli" #Container with version if required, to use for the rescue pod.
 
 
