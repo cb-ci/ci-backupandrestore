@@ -77,7 +77,7 @@ This script `restore.sh` is designed to perform a restoration of a Operations Ce
 It follows the process outlined in documentation: https://docs.cloudbees.com/docs/admin-resources/latest/backup-restore/restoring-manually
 
 
-## Pre-Requistes
+## Pre-Requirements
 - By default the ownership ID of the jenkins user inside of the container is 1000. This script assumes this remains the same.
 - This script assumes backups are saved in tar.gz format.
 - The local environment which this script is executed in must have aws and kubectl commands available and authorised.
