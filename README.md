@@ -164,7 +164,7 @@ The `backup.sh` script creates a compressed tarball of a controller's `jenkins_h
 
 ```
 ...
-CI_POD="sourcecontrollerpod"
+CI_POD="YOUR_SOURCE_CONTROLLER_POD"
 ARCHIVENAME="YOUR_BACKUP_ARCHIVE_NAME" 
 
 ```
@@ -181,7 +181,7 @@ The `restore-s3-simple.sh` script performs a full restore of a controller. It sc
 **IMPORTANT:** You **must** update the `CI_POD` variable in `set-env.sh`script if you want to restore on a new controller
 
 ```
-CI_POD="targetcontrollerpod"
+CI_POD="YOUR_TARGET_CONTROLLER_POD"
 ARCHIVENAME="YOUR_BACKUP_ARCHIVE_NAME" 
 ```
 
