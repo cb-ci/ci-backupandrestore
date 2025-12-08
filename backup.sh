@@ -13,7 +13,10 @@ ARCHIVENAME=backup-$CI_POD-$(date +"%d-%m-%Y").tar.gz
 #kubectl exec -it $CI_POD -- bash -c "cd /var/jenkins_home &&  tar -cvzf   /tmp/$ARCHIVENAME ."
 
 # Example for jenkins_home backup, excluding unwanted files or folders
-kubectl exec -it $CI_POD -- bash -c "cd /var/jenkins_home &&  tar -cvzf  --exclude='logs' --exclude='jobs'   /tmp/$ARCHIVENAME ."
+#kubectl exec -it $CI_POD -- bash -c "cd /var/jenkins_home &&  tar -cvzf  --exclude='logs' --exclude='jobs'   /tmp/$ARCHIVENAME ."
+
+# Useful tar command to be used when restoring on a new controller. We want to preserve some file on the target controller, so we exclude them
+kubectl exec -it $CI_POD -- bash -c "cd /var/jenkins_home &&  tar -cvz --ignore-failed-read  --exclude='messaging.*' --exclude='.com.cloudbees.ci.license.tracker.consolidation.*' --exclude='.java' --exclude='tmp' --exclude='.cache' --exclude='workspace'  --exclude='logs' --exclude='secrets/master.key' --exclude='secret.key' --exclude='license.xml' --exclude= 'identity.key.enc' --exclude= 'jgroups/' --exclude='operations-center-cloud*' --exclude= 'operations-center-client*' --exclude='com.cloudbees.opscenter.client.plugin.OperationsCenterRootAction.xml' --exclude='nodes/' -f  /tmp/$ARCHIVENAME ."
 
 kubectl cp --retries 10  $CI_POD:/tmp/$ARCHIVENAME ./$ARCHIVENAME
 du -m ./$ARCHIVENAME
