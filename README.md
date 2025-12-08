@@ -41,7 +41,7 @@ This table explains the purpose of each file in this repository.
 
 ---
 
-# Requirements
+## Requirements
 
 * AWS Access: S3 Bucket and required IAM permissions/access keys.
 * Kubernetes Access: kubectl access to the cluster hosting the CloudBees CI Controllers.
