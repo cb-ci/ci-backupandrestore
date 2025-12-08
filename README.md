@@ -13,6 +13,15 @@ There are two primary methods for handling backups with CloudBees CI:
 
 This repository focuses on the second approach.
 
+See CloudBees documentation for background:
+
+* https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/cloudbees-backup-plugin
+* https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/
+* https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/kubernetes
+* https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/backup-manually
+* https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/restoring-from-backup-plugin
+
+
 ---
 
 ## Repository Contents
