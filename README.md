@@ -129,16 +129,8 @@ The `restore-s3-simple.sh` script performs a full restore of a controller. It sc
 
 **2. Run the script:**
 ```bash
-# Run the restore
 ./restore-s3-simple.sh
 ```
 
 ---
-
-## Manual Debugging
-
-The following files are provided for manual debugging and are not part of the automated backup/restore workflow. They are useful if you need to manually inspect a volume or perform a custom operation.
-
-*   `rescue-pod.yaml` / `tar-pod.yaml`: These are pod definitions that can be used to mount a controller's PVC. You can apply them with `kubectl apply -f <filename>.yaml` and then use `kubectl exec` to get a shell inside the pod. **Warning:** These files may contain hardcoded values and credentials that you will need to change.
-*   `rescuePod.sh`: A simple script to quickly create a pod with `kubectl` available, which can be useful for running commands from within the cluster.
 
