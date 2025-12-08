@@ -74,6 +74,8 @@ spec:
         value: "$AWS_ACCESS_KEY_ID"
       - name: AWS_SECRET_ACCESS_KEY
         value: "$AWS_SECRET_ACCESS_KEY"
+      - name: JENKINS_HOME
+        value: "/tmp/jenkins-home/"
       resources:
         requests:
           ephemeral-storage: 4Gi
@@ -83,26 +85,39 @@ spec:
       command: ["/bin/sh", "-c"]
       args:
        - |
-         set -ex
+         set -xe
          echo "Rescue pod started. Preparing to restore backup."
-         
+
          # 1. Download the backup archive from S3 to a temporary directory.
          echo "Downloading $ARCHIVENAME from s3://$S3BUCKET/$S3BUCKET_FOLDER/..."
-         aws s3 cp "s3://$S3BUCKET/$S3BUCKET_FOLDER/$ARCHIVENAME" "/tmp/$ARCHIVENAME"
-         
+         aws s3 cp "s3://$S3BUCKET/$S3BUCKET_FOLDER/$ARCHIVENAME" "/tmp/$ARCHIVENAME" |tee /tmp/out.log
+
          # 2. List the contents of /tmp to verify the download.
-         echo "Download complete. Listing /tmp contents:"
-         ls -ltr /tmp
-         
+         echo "Download complete. Listing /tmp contents:" |tee -a /tmp/out.log
+         ls -ltr /tmp |tee -a /tmp/out.log
+
          # 3. Clean all existing data from the mounted jenkins-home directory.
-         echo "Cleaning existing data from /tmp/jenkins-home/..."
-         find /tmp/jenkins-home/ -mindepth 1 -delete
-         
+         echo "Cleaning existing data from /tmp/jenkins-home/..." |tee -a /tmp/out.log
+         # Delete all files and directories
+         # find /tmp/jenkins-home/ -mindepth 1 -delete |tee -a /tmp/out.log
+         # Delete all files and directories, but keep certain files on the target controller
+         find /tmp/jenkins-home/) -mindepth 1 \( \
+                     -not -path "/tmp/jenkins-home/secret.key" \
+                     -not -path "/tmp/jenkins-home/secrets" \
+                     -not -path "/tmp/jenkins-home/secrets/*" \
+                     -not -path "/tmp/jenkins-home/license.xml" \
+                     -not -path "/tmp/jenkins-home/identity.key.enc" \
+                     -not -path "/tmp/jenkins-home/operations-center-cloud.xml" \
+                     -not -path "/tmp/jenkins-home/operations-center-client.xml" \
+                     -not -path "/tmp/jenkins-home/com.cloudbees.opscenter.client.plugin.OperationsCenterRootAction.xml"\
+                     \) \
+                     -delete |tee -a /tmp/out.log
+
          # 4. Extract the backup archive into the now-empty jenkins-home directory.
-         echo "Extracting archive to /tmp/jenkins-home/..."
-         tar -xvzf "/tmp/$ARCHIVENAME" -C /tmp/jenkins-home
-         
-         echo "Restore script finished inside pod."
+         echo "Extracting archive to /tmp/jenkins-home/..." |tee -a /tmp/out.log
+         tar -xvzf "/tmp/$ARCHIVENAME" -C /tmp/jenkins-home |tee -a /tmp/out.log
+         echo "Restore script finished inside pod." |tee -a /tmp/out.log
+         cat /tmp/out.log
       volumeMounts:
         # Mount the PVC into the container at '/tmp/jenkins-home'.
         - mountPath: "/tmp/jenkins-home"
