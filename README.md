@@ -2,6 +2,9 @@
 
 This repository provides a set of scripts and tools for backing up and restoring CloudBees CI on a Kubernetes environment (like AWS EKS) using AWS S3 for storage.
 
+**Bandwidth Warning:**
+* Copying large .tar files locally (your laptop) and back to S3 will be slow. I recommend running the [backup.sh](backup.sh) script and S3 copy operation directly from an EC2 VM inside the same AWS VPC/subnet for max speed.
+
 ## Overview
 
 There are two primary methods for handling backups with CloudBees CI:
@@ -150,9 +153,6 @@ The `backup.sh` script creates a compressed tarball of a controller's `jenkins_h
 ```bash
 ./backup.sh
 ```
-
-**Bandwidth Warning:**
-Copying large .tar files locally and back to S3 will be slow. I recommend running the [backup.sh](backup.sh) script and S3 copy operation directly from an EC2 VM inside the same AWS VPC/subnet for max speed.
 
 ### Restoring a Controller
 
