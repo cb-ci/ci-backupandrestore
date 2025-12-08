@@ -5,31 +5,7 @@ set -euo pipefail
 # It creates a tarball of the jenkins_home, excluding certain files and directories,
 # and then uploads the tarball to an S3 bucket.
 
-# Usage: ./backup.sh <CI_POD> [S3BUCKET] [S3BUCKET_FOLDER]
-#
-# Arguments:
-#   CI_POD: The name of the CloudBees CI controller pod.
-#   S3BUCKET: The name of the S3 bucket to upload the backup to. Defaults to "YOUR_S3_BUCKET".
-#   S3BUCKET_FOLDER: The folder in the S3 bucket to upload the backup to. Defaults to "YOUR_S3_BACKUP_FOLDER".
-#
-# Required environment variables:
-#   AWS_ACCESS_KEY_ID: Your AWS access key ID.
-#   AWS_SECRET_ACCESS_KEY: Your AWS secret access key.
-
-: "${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is not set. Please set it to your AWS access key ID.}"
-: "${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is not set. Please set it to your AWS secret access key.}"
-
-
-# The name of the CloudBees CI pod (e.g., cjoc-0 or my-controller-0). Defaults to "POD_NAME" if not provided as the first argument.
-CI_POD=${1:-"POD_NAME"}
-# The name of the S3 bucket where the backup is stored. Defaults to "YOUR_S3_BUCKET" if not provided as the second argument.
-S3BUCKET=${2:-"YOUR_S3_BUCKET"}
-# The folder path within the S3 bucket. Defaults to "YOUR_S3_BACKUP_FOLDER" if not provided as the third argument.
-S3BUCKET_FOLDER=${3:-"YOUR_S3_BACKUP_FOLDER"}
-ARCHIVENAME="backup-$CI_POD-$(date +"%d-%m-%Y").tar.gz"
-
-
-
+source ./set-env.sh
 
 echo "Creating archive for Controller: $CI_POD"
 

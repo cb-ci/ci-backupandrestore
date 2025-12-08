@@ -1,38 +1,58 @@
-# Backup and restore cloudbees-ci
+# CloudBees CI Backup and Restore Scripts
 
-This repo is about scripted approaches for backup and restore on/from AWS S3 for CloudBees CI on AWS EKS
+This repository provides a set of scripts and tools for backing up and restoring CloudBees CI on a Kubernetes environment (like AWS EKS) using AWS S3 for storage.
 
-see CloudBees documentation here for background:
+## Overview
 
-* https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/cloudbees-backup-plugin
-* https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/
-* https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/kubernetes
-* https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/backup-manually
-* https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/restoring-from-backup-plugin
+There are two primary methods for handling backups with CloudBees CI:
 
+1.  **CloudBees Backup Plugin:** A fully supported and integrated plugin that automates backups. See the official documentation for more details:
+    *   [CloudBees Backup Plugin](https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/cloudbees-backup-plugin)
 
+2.  **Custom Scripts (This Repository):** A more hands-on, script-based approach that gives you granular control over the backup and restore process. This method is useful for disaster recovery scenarios, manual interventions, or when you need a customized workflow.
 
-# Pre-requirements
+This repository focuses on the second approach.
 
-```
+---
 
-export AWS_ACCESS_KEY_ID="YOUR_AWS_KEY"
-export AWS_SECRET_ACCESS_KEY="YOUR_AWS_SECRET"
-export AWS_DEFAULT_REGION=YOUR_AWS_REGION
-export KUBECONFIG=PATH_TO_KUBECONFIG
-```
+## Repository Contents
 
+This table explains the purpose of each file in this repository.
 
+| File                       | Description                                                                                               |
+| -------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `backup.sh`                | The main script to back up a controller's `jenkins_home` to an S3 bucket.                                   |
+| `restore-s3-simple.sh`     | The main script to restore a controller's `jenkins_home` from an S3 backup.                                 |
+| `mybackup.sh`              | An example of a personalized backup script. **Note:** This may contain hardcoded user-specific values.      |
+| `my-restore-s3-simple.sh`  | An example of a personalized restore script. **Note:** This may contain hardcoded user-specific values.     |
+| `Dockerfile`               | Defines a custom Docker image containing essential tools (`aws-cli`, `kubectl`, `tar`) for the scripts.   |
+| `dockerbuild.sh`           | A helper script to build the custom Docker image defined in the `Dockerfile`.                             |
+| `rescue-pod.yaml`          | A template for a debugging pod to manually inspect a Persistent Volume Claim (PVC).                       |
+| `tar-pod.yaml`             | A template for a debugging pod with `tar` installed to manually manage backup archives on a PVC.          |
+| `rescuePod.sh`             | A helper script to quickly launch a pod with `kubectl` available for cluster debugging.                     |
+| `set-env.sh`               | **(Not in repo)** The scripts are designed to source a `set-env.sh` file to export necessary environment variables. You will need to create this file. |
 
-## Create S3 Backup Bucket
+---
 
-see https://docs.aws.amazon.com/AmazonS3/latest/userguide/creating-bucket.html
+## Setup and Configuration
 
-## Create Bucket Policy
-In AWS console (or use aws cli)
-> IAM -> Policies -> YOUR_S3_POLICY
+Before using the scripts, you need to set up your AWS environment, local machine, and the custom Docker image.
 
-```
+### 1. AWS Setup
+
+You need an S3 bucket to store the backups and an IAM User with the correct permissions to access it.
+
+#### a. Create S3 Bucket
+Create a new S3 bucket in your desired AWS region.
+*See: [AWS S3 - Creating a bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/creating-bucket.html)*
+
+#### b. Create IAM Policy
+Create an IAM policy that grants access to your S3 bucket.
+
+> In AWS Console: **IAM -> Policies -> Create policy**
+
+Use the following JSON, replacing `YOURBUCKET` with your bucket name:
+```json
 {
     "Version": "2012-10-17",
     "Statement": [
@@ -53,39 +73,76 @@ In AWS console (or use aws cli)
     ]
 }
 ```
-## Create User
-> IAM -> Users -> YOURUSER
 
-> IAM -> Users -> YOURUSER -> Add permissions -> Attach policies directly
+#### c. Create IAM User and Attach Policy
+1.  Create a new IAM User.
+2.  Attach the policy you created in the previous step directly to this user.
+3.  Generate an access key for this user and note the **Access Key ID** and **Secret Access Key**.
 
-> Assign YOURUSER to the S3 policy
+### 2. Local Environment
 
-## Create AWS Key
-> IAM -> Users -> YOURUSER -> Access keys > Create access key
+Your local machine, where you will run the scripts, needs the following:
 
-Then Add exported keys to Jenkins Credentials store and assign to the Backup-job and/or setCreds.sh
+#### a. Required Tools
+Ensure you have the following command-line tools installed and configured:
+*   `kubectl`: Configured to connect to your Kubernetes cluster.
+*   `aws-cli`: Configured for access to your AWS account.
+
+#### b. Environment Variables
+The scripts require several environment variables to be set. The recommended way is to create a file named `set-env.sh` in the root of this repository and add the following lines.
+
+**Create a `set-env.sh` file:**
+
+```cp set-env.sh.template set-env.sh.```
+**Important:** Do not commit `set-env.sh` to version control if it contains sensitive information. Add it to your `.gitignore` file.
+
+### 3. Custom Docker Image
+The `restore-s3-simple.sh` script uses a custom Docker image that contains all the necessary tools.
+
+#### a. Build the Image
+Build the image by running the `dockerbuild.sh` script:
+```bash
+./dockerbuild.sh
+```
+This script builds the `Dockerfile` and tags the image as `caternberg/aws-cli:1.3`.
+
+#### b. (Optional) Push to a Registry
+If your Kubernetes cluster does not have local access to the image, you will need to push it to a Docker registry (like Docker Hub, ECR, or GCR) and update the image name in the `restore-s3-simple.sh` script accordingly.
+
+---
+
+## Usage
+
+### Backing Up a Controller
+
+The `backup.sh` script creates a compressed tarball of a controller's `jenkins_home` and uploads it to S3.
+
+**Usage:**
+```bash
+./backup.sh
+```
 
 
-# Create Backup for Operations Center or Controller in S3
+### Restoring a Controller
 
-* Option1: Use the CloudBees Backup Plugin, see https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/cloudbees-backup-plugin
-* Option2: Use the `backup.sh` script
+The `restore-s3-simple.sh` script performs a full restore of a controller. It scales down the statefulset, creates a temporary "rescue pod" to download and extract the backup onto the PVC, and then scales the statefulset back up.
 
-
-# Restore Operations Center or Controller from Backup
-This script [restore-s3-simple.sh](restore-s3-simple.sh) is designed to perform a restoration of a Operations Center or Controller instance in CloudBees Core modern.
-It follows the process outlined in documentation: https://docs.cloudbees.com/docs/admin-resources/latest/backup-restore/restoring-manually
+**IMPORTANT:** You **must** edit the script to configure the restore parameters before running it.
 
 
-## Pre-Requirements
-- By default the ownership ID of the jenkins user inside of the container is 1000. This script assumes this remains the same.
-- This script assumes backups are saved in tar.gz format.
-- The local environment which this script is executed in must have aws and kubectl commands available and authorised.
-- AWS access from the local command line must have access to download from the associated/configured S3 bucket containing the backup file.
-- The rescue container must have the tar command tool installed.
-- The rescue container must have privileges to change ownership and permissions of files in the /tmp directory.
-- The rescue container must be able to mount the Cjoc or Controller persistent volume.
 
-## Run
-Configure the config file and run this script using [restore-s3-simple.sh](restore-s3-simple.sh)
+**2. Run the script:**
+```bash
+# Run the restore
+./restore-s3-simple.sh
+```
+
+---
+
+## Manual Debugging
+
+The following files are provided for manual debugging and are not part of the automated backup/restore workflow. They are useful if you need to manually inspect a volume or perform a custom operation.
+
+*   `rescue-pod.yaml` / `tar-pod.yaml`: These are pod definitions that can be used to mount a controller's PVC. You can apply them with `kubectl apply -f <filename>.yaml` and then use `kubectl exec` to get a shell inside the pod. **Warning:** These files may contain hardcoded values and credentials that you will need to change.
+*   `rescuePod.sh`: A simple script to quickly create a pod with `kubectl` available, which can be useful for running commands from within the cluster.
 
