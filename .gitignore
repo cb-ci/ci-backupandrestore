@@ -1,2 +1,4 @@
 *.tar.gz
 .DS_Store
+/set-env.sh
+/rescuePod.sh
