@@ -41,13 +41,15 @@ This table explains the purpose of each file in this repository.
 
 ---
 
-## Requirements
+# Requirements
 
-* S3 Bucket and access 
-* Kubectl access to the cluster (CloudBees CI Controllers or Cjoc) 
-* Access to docker registry 
-* Optional: EC2 VM (bastion host) for faster throughput
-
+* AWS Access: S3 Bucket and required IAM permissions/access keys.
+* Kubernetes Access: kubectl access to the cluster hosting the CloudBees CI Controllers.
+* Controller States (Backup/Restore):
+  * Source: The controller to be backed up must be running.
+  * Target: A new controller must be running and connected to Operations Center.
+* Tooling: Access to a Docker registry to pull the necessary tools image (containing aws-cli, etc.).
+* Optional: EC2 VM (bastion host) to ensure faster transfer speeds/throughput (same VPC/subnet recommended).
 
 ## Setup and Configuration
 
