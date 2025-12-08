@@ -24,8 +24,6 @@ S3BUCKET_FOLDER=${3:-"YOUR_S3_BACKUP_FOLDER"}
 # The filename of the backup archive.
 ARCHIVENAME="YOUR_BACKUP_ARCHIVE_NAME" # for example backup-mypod-12-03-2025.tar.gz
 
-
-
 # --- Prerequisite Checks ---
 # Check if kubectl is installed and available in the PATH.
 if ! command -v kubectl &> /dev/null; then
@@ -131,10 +129,10 @@ kubectl logs rescue-pod
 
 # Delete the rescue-pod as it is no longer needed.
 echo "Deleting the rescue-pod..."
-#kubectl delete pod rescue-pod
+kubectl delete pod rescue-pod
 
 # Scale the StatefulSet back up to 1 replica to bring the Jenkins instance online.
 echo "Scaling up StatefulSet '$CI_STATEFUL_SET' to 1 replica..."
-#kubectl scale statefulset/"$CI_STATEFUL_SET" --replicas=1
+kubectl scale statefulset/"$CI_STATEFUL_SET" --replicas=1
 
 echo "Restore process completed successfully."
