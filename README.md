@@ -87,20 +87,24 @@ Ensure you have the following command-line tools installed and configured:
 #### b. Environment Variables
 The scripts require several environment variables to be set. The recommended way is to create a file named `set-env.sh` in the root of this repository and add the following lines.
 
-**Create a `set-env.sh` file:**
+**Create a `set-env.sh` file from template:**
 
 ```cp set-env.sh.template set-env.sh.```
+
 **Important:** Do not commit `set-env.sh` to version control if it contains sensitive information. Add it to your `.gitignore` file.
 
 ### 3. Custom Docker Image
 The `restore-s3-simple.sh` script uses a custom Docker image that contains all the necessary tools.
 
+You can skip this step and use the one I have pushed here https://hub.docker.com/repository/docker/caternberg/aws-cli/general
+
 #### a. Build the Image
-Build the image by running the `dockerbuild.sh` script:
+
+Optional: Build the image by running the `dockerbuild.sh` script:
 ```bash
 ./dockerbuild.sh
 ```
-This script builds the `Dockerfile` and tags the image as `caternberg/aws-cli:1.3`.
+This script builds the [Dockerfile](Dockerfile) and tags the image as `caternberg/aws-cli:1.3`.
 
 #### b. (Optional) Push to a Registry
 If your Kubernetes cluster does not have local access to the image, you will need to push it to a Docker registry (like Docker Hub, ECR, or GCR) and update the image name in the `restore-s3-simple.sh` script accordingly.
@@ -108,6 +112,27 @@ If your Kubernetes cluster does not have local access to the image, you will nee
 ---
 
 ## Usage
+
+### Adjust Env Variables 
+
+In `set-env.sh` set the variables:
+
+```
+# The name of the CloudBees CI pod (e.g., cjoc-0 or my-controller-0). Defaults to "POD_NAME" if not provided as the first argument.
+CI_POD="POD_NAME"
+# The name of the S3 bucket where the backup is stored. Defaults to "YOUR_S3_BUCKET" if not provided as the second argument.
+S3BUCKET="YOUR_S3_BUCKET"
+# The folder path within the S3 bucket. Defaults to "YOUR_S3_BACKUP_FOLDER" if not provided as the third argument.
+S3BUCKET_FOLDER="YOUR_S3_BACKUP_FOLDER"
+# The filename of the backup archive.
+ARCHIVENAME="YOUR_BACKUP_ARCHIVE_NAME" # for example backup-mypod-12-03-2025.tar.gz
+
+# Kubernetes Config
+export KUBECONFIG="/path/to/your/kubeconfig"
+
+export AWS_ACCESS_KEY_ID="..."
+export AWS_SECRET_ACCESS_KEY="..."
+```
 
 ### Backing Up a Controller
 
