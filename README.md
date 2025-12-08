@@ -148,9 +148,9 @@ The `backup.sh` script creates a compressed tarball of a controller's `jenkins_h
 
 The `restore-s3-simple.sh` script performs a full restore of a controller. It scales down the statefulset, creates a temporary "rescue pod" to download and extract the backup onto the PVC, and then scales the statefulset back up.
 
-**IMPORTANT:** You **must** edit the script to configure the restore parameters before running it.
+**IMPORTANT:** You **must** update the `CI_POD` variable in `set-env.sh`script if you want to restore on a new controller
 
-
+> CI_POD=${targetcontrollerpod}
 
 **2. Run the script:**
 ```bash
