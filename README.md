@@ -160,6 +160,14 @@ export AWS_SECRET_ACCESS_KEY="..."
 ### Backing Up a Controller
 
 The `backup.sh` script creates a compressed tarball of a controller's `jenkins_home` and uploads it to S3.
+**IMPORTANT:** You **must** update the `CI_POD` variable in `set-env.sh`script
+
+```
+...
+CI_POD="sourcecontrollerpod"
+ARCHIVENAME="YOUR_BACKUP_ARCHIVE_NAME" 
+
+```
 
 **Usage:**
 ```bash
@@ -172,9 +180,12 @@ The `restore-s3-simple.sh` script performs a full restore of a controller. It sc
 
 **IMPORTANT:** You **must** update the `CI_POD` variable in `set-env.sh`script if you want to restore on a new controller
 
-> CI_POD=${targetcontrollerpod}
+```
+CI_POD="targetcontrollerpod"
+ARCHIVENAME="YOUR_BACKUP_ARCHIVE_NAME" 
+```
 
-**2. Run the script:**
+**Usage:**
 ```bash
 ./restore-s3-simple.sh
 ```
