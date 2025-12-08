@@ -16,8 +16,8 @@ set -euo pipefail
 #   AWS_ACCESS_KEY_ID: Your AWS access key ID.
 #   AWS_SECRET_ACCESS_KEY: Your AWS secret access key.
 
-#: "${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is not set. Please set it to your AWS access key ID.}"
-#: "${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is not set. Please set it to your AWS secret access key.}"
+: "${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is not set. Please set it to your AWS access key ID.}"
+: "${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is not set. Please set it to your AWS secret access key.}"
 
 
 # The name of the CloudBees CI pod (e.g., cjoc-0 or my-controller-0). Defaults to "POD_NAME" if not provided as the first argument.
@@ -28,14 +28,7 @@ S3BUCKET=${2:-"YOUR_S3_BUCKET"}
 S3BUCKET_FOLDER=${3:-"YOUR_S3_BACKUP_FOLDER"}
 ARCHIVENAME="backup-$CI_POD-$(date +"%d-%m-%Y").tar.gz"
 
-export AWS_ACCESS_KEY_ID=$(yq '.awsAccessKey' /Users/acaternberg/projects/cloudbees-ci/casc/casc-operationscenter/secrets/cbci-secrets.yaml )
-export AWS_SECRET_ACCESS_KEY=$(yq '.awsSecretKey' /Users/acaternberg/projects/cloudbees-ci/casc/casc-operationscenter/secrets/cbci-secrets.yaml )
 
-CI_POD=${1:-"source-0"}
-S3BUCKET=${2:-"backup.cjoc.acaternberg.pscbdemos.com"}
-S3BUCKET_FOLDER="${3:-"contrbackup-sda.acaternberg.flow-training.beescloud.com-all-controllers"}"
-echo "create Archive for Controller: $CI_POD"
-ARCHIVENAME=backup-$CI_POD-$(date +"%d-%m-%Y").tar.gz
 
 
 echo "Creating archive for Controller: $CI_POD"
