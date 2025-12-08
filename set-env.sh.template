@@ -1,10 +1,10 @@
 #! /bin/bash
 
-# The name of the CloudBees CI pod (e.g., cjoc-0 or my-controller-0). Defaults to "POD_NAME" if not provided as the first argument.
+# The name of the CloudBees CI pod (e.g., cjoc-0 or my-controller-0).
 CI_POD="POD_NAME"
-# The name of the S3 bucket where the backup is stored. Defaults to "YOUR_S3_BUCKET" if not provided as the second argument.
+# The name of the S3 bucket where the backup is stored.
 S3BUCKET="YOUR_S3_BUCKET"
-# The folder path within the S3 bucket. Defaults to "YOUR_S3_BACKUP_FOLDER" if not provided as the third argument.
+# The folder path within the S3 bucket.
 S3BUCKET_FOLDER="YOUR_S3_BACKUP_FOLDER"
 # The filename of the backup archive.
 ARCHIVENAME="YOUR_BACKUP_ARCHIVE_NAME" # for example backup-mypod-12-03-2025.tar.gz
