@@ -12,8 +12,13 @@
 # Pipelines return the exit status of the last command to exit with a non-zero status.
 set -eo pipefail -u
 
-export AWS_ACCESS_KEY_ID="YOUR_ACCESS_KEY"
-export AWS_SECRET_ACCESS_KEY="YOUR_SECRET_ACCESS_KEY"
+# Required environment variables:
+#   AWS_ACCESS_KEY_ID: Your AWS access key ID.
+#   AWS_SECRET_ACCESS_KEY: Your AWS secret access key.
+
+: "${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is not set. Please set it to your AWS access key ID.}"
+: "${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is not set. Please set it to your AWS secret access key.}"
+
 
 # The name of the CloudBees CI pod (e.g., cjoc-0 or my-controller-0). Defaults to "POD_NAME" if not provided as the first argument.
 CI_POD=${1:-"POD_NAME"}
