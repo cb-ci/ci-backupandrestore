@@ -35,11 +35,19 @@ This table explains the purpose of each file in this repository.
 |----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
 | [backup.sh](backup.sh)                       | The main script to back up a controller's `jenkins_home` to an S3 bucket.                                                            |
 | [restore-s3-simple.sh](restore-s3-simple.sh) | The main script to restore a controller's `jenkins_home` from an S3 backup.                                                          |
-| [Dockerfile](Dockerfile)                     | Defines a custom Docker image containing essential tools (`aws-cli`, `kubectl`, `tar`) for the scripts.                              |
-| [dockerbuild.sh](dockerbuild.sh)             | A helper script to build the custom Docker image defined in the `Dockerfile`.                                                        |
 | [set-env.sh.template](set-env.sh.template)   | The scripts are designed to source a `set-env.sh` file to export necessary environment variables. You will need to create this file. |
+| [Dockerfile](Dockerfile)                     | For optional usage: Defines a custom Docker image containing essential tools (`aws-cli`, `kubectl`, `tar`) for the scripts.          |
+| [dockerbuild.sh](dockerbuild.sh)             | For optional usage: A helper script to build the custom Docker image defined in the `Dockerfile`.                                                        |
 
 ---
+
+## Requirements
+
+* S3 Bucket and access 
+* Kubectl access to the cluster (CloudBees CI Controllers or Cjoc) 
+* Access to docker registry 
+* Optional: EC2 VM (bastion host) for faster throughput
+
 
 ## Setup and Configuration
 
