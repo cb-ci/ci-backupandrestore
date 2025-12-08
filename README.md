@@ -152,6 +152,8 @@ The `backup.sh` script creates a compressed tarball of a controller's `jenkins_h
 ./backup.sh
 ```
 
+**Bandwidth Warning:**
+Copying large .tar files locally and back to S3 will be slow. I recommend running the [backup.sh](backup.sh) script and S3 copy operation directly from an EC2 VM inside the same AWS VPC/subnet for max speed.
 
 ### Restoring a Controller
 
