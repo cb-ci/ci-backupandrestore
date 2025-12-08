@@ -19,18 +19,14 @@ This repository focuses on the second approach.
 
 This table explains the purpose of each file in this repository.
 
-| File                       | Description                                                                                               |
-| -------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `backup.sh`                | The main script to back up a controller's `jenkins_home` to an S3 bucket.                                   |
-| `restore-s3-simple.sh`     | The main script to restore a controller's `jenkins_home` from an S3 backup.                                 |
-| `mybackup.sh`              | An example of a personalized backup script. **Note:** This may contain hardcoded user-specific values.      |
-| `my-restore-s3-simple.sh`  | An example of a personalized restore script. **Note:** This may contain hardcoded user-specific values.     |
-| `Dockerfile`               | Defines a custom Docker image containing essential tools (`aws-cli`, `kubectl`, `tar`) for the scripts.   |
-| `dockerbuild.sh`           | A helper script to build the custom Docker image defined in the `Dockerfile`.                             |
-| `rescue-pod.yaml`          | A template for a debugging pod to manually inspect a Persistent Volume Claim (PVC).                       |
-| `tar-pod.yaml`             | A template for a debugging pod with `tar` installed to manually manage backup archives on a PVC.          |
-| `rescuePod.sh`             | A helper script to quickly launch a pod with `kubectl` available for cluster debugging.                     |
-| `set-env.sh`               | **(Not in repo)** The scripts are designed to source a `set-env.sh` file to export necessary environment variables. You will need to create this file. |
+| File                      | Description                                                                                                                          |
+|---------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
+| `backup.sh`               | The main script to back up a controller's `jenkins_home` to an S3 bucket.                                                            |
+| `restore-s3-simple.sh`    | The main script to restore a controller's `jenkins_home` from an S3 backup.                                                          |
+| `Dockerfile`              | Defines a custom Docker image containing essential tools (`aws-cli`, `kubectl`, `tar`) for the scripts.                              |
+| `dockerbuild.sh`          | A helper script to build the custom Docker image defined in the `Dockerfile`.                                                        |
+| `rescue-pod.yaml`         | A template for a debugging pod to manually inspect a Persistent Volume Claim (PVC).                                                  |
+| `set-env.sh.template`     | The scripts are designed to source a `set-env.sh` file to export necessary environment variables. You will need to create this file. |
 
 ---
 
