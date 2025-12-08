@@ -102,16 +102,16 @@ spec:
          # find /tmp/jenkins-home/ -mindepth 1 -delete |tee -a /tmp/out.log
          # Delete all files and directories, but keep certain files on the target controller
          find /tmp/jenkins-home/) -mindepth 1 \( \
-                     -not -path "/tmp/jenkins-home/secret.key" \
-                     -not -path "/tmp/jenkins-home/secrets" \
-                     -not -path "/tmp/jenkins-home/secrets/*" \
-                     -not -path "/tmp/jenkins-home/license.xml" \
-                     -not -path "/tmp/jenkins-home/identity.key.enc" \
-                     -not -path "/tmp/jenkins-home/operations-center-cloud.xml" \
-                     -not -path "/tmp/jenkins-home/operations-center-client.xml" \
-                     -not -path "/tmp/jenkins-home/com.cloudbees.opscenter.client.plugin.OperationsCenterRootAction.xml"\
-                     \) \
-                     -delete |tee -a /tmp/out.log
+           -not -path "/tmp/jenkins-home/secret.key" \
+           -not -path "/tmp/jenkins-home/secrets" \
+           -not -path "/tmp/jenkins-home/secrets/*" \
+           -not -path "/tmp/jenkins-home/license.xml" \
+           -not -path "/tmp/jenkins-home/identity.key.enc" \
+           -not -path "/tmp/jenkins-home/operations-center-cloud.xml" \
+           -not -path "/tmp/jenkins-home/operations-center-client.xml" \
+           -not -path "/tmp/jenkins-home/com.cloudbees.opscenter.client.plugin.OperationsCenterRootAction.xml"\
+           \) \
+         -delete |tee -a /tmp/out.log
 
          # 4. Extract the backup archive into the now-empty jenkins-home directory.
          echo "Extracting archive to /tmp/jenkins-home/..." |tee -a /tmp/out.log
