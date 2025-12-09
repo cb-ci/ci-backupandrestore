@@ -187,6 +187,10 @@ CI_POD="YOUR_TARGET_CONTROLLER_POD"
 ARCHIVENAME="YOUR_BACKUP_ARCHIVE_NAME" 
 ```
 
+**Tip:** Consider to avoid jobs automatically starting on the target Controller, either by
+* [Prepare Controller for quite restart](https://docs.cloudbees.com/docs/cloudbees-ci/latest/cloud-admin-guide/quiet-start)
+* or [Disabling Jobs](https://docs.cloudbees.com/docs/cloudbees-ci-kb/latest/client-and-managed-controllers/how-to-disable-all-jobs-in-a-specific-folder) (Jenkins init script)
+
 **Usage:**
 ```bash
 ./restore-s3-simple.sh
