@@ -117,8 +117,7 @@ The scripts require several environment variables to be set. The recommended way
 **Important:** Do not commit `set-env.sh` to version control if it contains sensitive information. Add it to your `.gitignore` file.
 
 ### 3. Build Custom Docker Image (OPTIONAL)
-The `restore-s3-simple.sh` script uses a custom Docker image that contains all the necessary tools.
-
+The [restore-s3-simple.sh](restore-s3-simple.sh) script uses a custom Docker image that contains all the necessary tools.
 You can skip this step and use the one I have pushed here https://hub.docker.com/repository/docker/caternberg/aws-cli/general
 
 #### a. Build the Image
