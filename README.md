@@ -169,6 +169,9 @@ ARCHIVENAME="YOUR_BACKUP_ARCHIVE_NAME"
 
 ```
 
+**NOTE:** This script stores the tar archive temporarily in the pod’s `/tmp` directory before uploading to S3.
+Ensure that `/tmp` has sufficient capacity. Alternatively, you can mount a dedicated RWX NFS (or other persistent) volume for the backup
+
 **Usage:**
 ```bash
 ./backup.sh
