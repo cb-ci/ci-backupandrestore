@@ -21,16 +21,6 @@ if ! command -v kubectl &> /dev/null; then
     exit 1
 fi
 
-# --- Variable Definitions ---
-# AWS credentials should be set as environment variables, not hardcoded in the script.
-# For example:
-# export AWS_ACCESS_KEY_ID="YOUR_ACCESS_KEY"
-# export AWS_SECRET_ACCESS_KEY="YOUR_SECRET_ACCESS_KEY"
-if [[ -z "${AWS_ACCESS_KEY_ID}" ]] || [[ -z "${AWS_SECRET_ACCESS_KEY}" ]]; then
-    echo "Error: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables must be set."
-    exit 1
-fi
-
 # Automatically derive the StatefulSet name from the POD name (e.g., 'cjoc-0' -> 'cjoc').
 CI_STATEFUL_SET="${CI_POD%-*}"
 
