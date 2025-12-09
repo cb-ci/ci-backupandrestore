@@ -101,7 +101,7 @@ spec:
          # Delete all files and directories
          # find /tmp/jenkins-home/ -mindepth 1 -delete |tee -a /tmp/out.log
          # Delete all files and directories, but keep certain files on the target controller
-         find /tmp/jenkins-home/) -mindepth 1 \( \
+         find /tmp/jenkins-home/ -mindepth 1 \( \
            -not -path "/tmp/jenkins-home/secret.key" \
            -not -path "/tmp/jenkins-home/secrets" \
            -not -path "/tmp/jenkins-home/secrets/*" \
@@ -111,7 +111,7 @@ spec:
            -not -path "/tmp/jenkins-home/operations-center-client.xml" \
            -not -path "/tmp/jenkins-home/com.cloudbees.opscenter.client.plugin.OperationsCenterRootAction.xml"\
            \) \
-         -delete |tee -a /tmp/out.log
+         -delete
 
          # 4. Extract the backup archive into the now-empty jenkins-home directory.
          echo "Extracting archive to /tmp/jenkins-home/..." |tee -a /tmp/out.log
@@ -130,14 +130,14 @@ kubectl wait --for=condition=Ready pod/rescue-pod --timeout=300s
 
 # Display the logs from the rescue-pod to verify the outcome.
 echo "Rescue pod finished. Displaying logs:"
-kubectl logs rescue-pod
+kubectl logs -f rescue-pod
 
 # Delete the rescue-pod as it is no longer needed.
 echo "Deleting the rescue-pod..."
-kubectl delete pod rescue-pod
+# kubectl delete pod rescue-pod
 
 # Scale the StatefulSet back up to 1 replica to bring the Jenkins instance online.
 echo "Scaling up StatefulSet '$CI_STATEFUL_SET' to 1 replica..."
-kubectl scale statefulset/"$CI_STATEFUL_SET" --replicas=1
+# kubectl scale statefulset/"$CI_STATEFUL_SET" --replicas=1
 
 echo "Restore process completed successfully."
