@@ -134,10 +134,10 @@ kubectl logs -f rescue-pod
 
 # Delete the rescue-pod as it is no longer needed.
 echo "Deleting the rescue-pod..."
-# kubectl delete pod rescue-pod
+kubectl delete pod rescue-pod
 
 # Scale the StatefulSet back up to 1 replica to bring the Jenkins instance online.
 echo "Scaling up StatefulSet '$CI_STATEFUL_SET' to 1 replica..."
-# kubectl scale statefulset/"$CI_STATEFUL_SET" --replicas=1
+kubectl scale statefulset/"$CI_STATEFUL_SET" --replicas=1
 
 echo "Restore process completed successfully."
