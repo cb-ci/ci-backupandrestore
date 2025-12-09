@@ -116,7 +116,7 @@ The scripts require several environment variables to be set. The recommended way
 
 **Important:** Do not commit `set-env.sh` to version control if it contains sensitive information. Add it to your `.gitignore` file.
 
-### 3. Custom Docker Image
+### 3. Build Custom Docker Image (OPTIONAL)
 The `restore-s3-simple.sh` script uses a custom Docker image that contains all the necessary tools.
 
 You can skip this step and use the one I have pushed here https://hub.docker.com/repository/docker/caternberg/aws-cli/general
@@ -129,7 +129,7 @@ Optional: Build the image by running the `dockerbuild.sh` script:
 ```
 This script builds the [Dockerfile](Dockerfile) and tags the image as `caternberg/aws-cli:1.3`.
 
-#### b. (Optional) Push to a Registry
+#### b. Push to a Registry
 If your Kubernetes cluster does not have local access to the image, you will need to push it to a Docker registry (like Docker Hub, ECR, or GCR) and update the image name in the `restore-s3-simple.sh` script accordingly.
 
 ---
