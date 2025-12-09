@@ -11,6 +11,7 @@ echo "Creating archive for Controller: $CI_POD"
 
 # Exclude patterns for the tar command
 # These filter might be adjusted
+# See https://docs.cloudbees.com/docs/cloudbees-ci-kb/latest/operations-center/how-to-reconnect-a-client-controller-stuck-on-registration
 EXCLUDE_PATTERNS=(
     --exclude='messaging.*'
     --exclude='.com.cloudbees.ci.license.tracker.consolidation.*'

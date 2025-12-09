@@ -92,6 +92,7 @@ spec:
          # Delete all files and directories
          # find /tmp/jenkins-home/ -mindepth 1 -delete
          # Delete all files and directories, but keep certain files on the target controller
+         # https://docs.cloudbees.com/docs/cloudbees-ci-kb/latest/operations-center/how-to-reconnect-a-client-controller-stuck-on-registration
          find /tmp/jenkins-home/ -mindepth 1 \( \
            -not -path "/tmp/jenkins-home/secret.key" \
            -not -path "/tmp/jenkins-home/secrets" \
