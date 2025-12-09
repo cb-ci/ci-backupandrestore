@@ -16,7 +16,6 @@ EXCLUDE_PATTERNS=(
     --exclude='.com.cloudbees.ci.license.tracker.consolidation.*'
     --exclude='.java'
     --exclude='tmp'
-    --exclude='plugins'
     --exclude='.cache'
     --exclude='workspace'
     --exclude='logs'
