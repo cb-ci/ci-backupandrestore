@@ -184,6 +184,55 @@ Ensure that `/tmp` has sufficient capacity. Alternatively, you can mount a dedic
 
 The `restore-s3-simple.sh` script performs a full restore of a controller. It scales down the statefulset, creates a temporary "rescue pod" to download and extract the backup onto the PVC, and then scales the statefulset back up.
 
+**Restore sequence:**
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant Script as restore-s3-simple.sh
+    participant K8s as Kubernetes API (kubectl)
+    participant STS as StatefulSet (controller/CJOC)
+    participant Rescue as rescue-pod (aws-cli image)
+    participant PVC as PVC jenkins-home-CI_POD
+    participant S3 as AWS S3
+
+    User->>Script: ./restore-s3-simple.sh [--preserve-identity]
+    Script->>Script: source .env, parse flags, check kubectl
+    Script->>Script: derive StatefulSet name from CI_POD (cjoc-0 -> cjoc)
+
+    Script->>K8s: scale statefulset --replicas=0
+    K8s->>STS: stop controller pod
+    Note over STS,PVC: PVC is no longer in use
+
+    Script->>K8s: delete existing rescue-pod (if any)
+    Script->>K8s: apply rescue-pod manifest
+    K8s->>Rescue: create pod, mount PVC at /tmp/jenkins-home
+    Rescue-->>PVC: mount
+    Script->>K8s: wait for pod Ready (timeout 300s)
+
+    rect rgb(235, 245, 255)
+    Note over Rescue,S3: Commands run inside the rescue-pod
+    Rescue->>S3: aws s3 cp s3://S3BUCKET/S3BUCKET_FOLDER/ARCHIVENAME
+    S3-->>Rescue: backup archive in /tmp
+    alt --preserve-identity
+        Rescue->>PVC: delete everything except identity files (secret.key, secrets/, license.xml, ...)
+    else default
+        Rescue->>PVC: delete everything
+    end
+    Rescue->>PVC: tar -xvzf archive into /tmp/jenkins-home
+    end
+
+    Script->>K8s: kubectl logs -f rescue-pod
+    K8s-->>Script: stream pod logs until the pod finishes
+    Script->>K8s: delete rescue-pod
+    Script->>K8s: scale statefulset --replicas=1
+    K8s->>STS: start controller with restored jenkins home
+    Script-->>User: Restore process completed
+```
+
+If any step fails, the script logs the failing line and exits. The StatefulSet then stays scaled down and the rescue-pod may still exist, see the **Output** note below.
+
 **IMPORTANT:** You **must** update the `CI_POD` variable in `.env` if you want to restore on a new controller
 
 ```
