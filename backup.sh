@@ -5,7 +5,7 @@ set -euo pipefail
 # It creates a tarball of the jenkins_home, excluding certain files and directories,
 # and then uploads the tarball to an S3 bucket.
 
-source ./set-env.sh
+source .env
 
 echo "Creating archive for Controller: $CI_POD"
 
