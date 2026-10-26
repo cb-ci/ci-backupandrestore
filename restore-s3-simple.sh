@@ -103,11 +103,12 @@ spec:
     - name: rescue-pod-$CI_STATEFUL_SET
       image: caternberg/aws-cli:1.3 # A container image with AWS CLI tools. See Dockerfile
       env:
-      # Pass AWS credentials to the pod securely from environment variables.
-      # - name: AWS_ACCESS_KEY_ID
-      #   value: "$AWS_ACCESS_KEY_ID"
-      # - name: AWS_SECRET_ACCESS_KEY
-      #   value: "$AWS_SECRET_ACCESS_KEY"
+      # Optional: Pass AWS credentials to the pod securely from environment variables.
+      # You can remove these AWS_ACCESS* lines if you are using pod identity
+      - name: AWS_ACCESS_KEY_ID
+        value: "$AWS_ACCESS_KEY_ID"
+      - name: AWS_SECRET_ACCESS_KEY
+        value: "$AWS_SECRET_ACCESS_KEY"
       - name: JENKINS_HOME
         value: "/tmp/jenkins-home/"
       resources:
