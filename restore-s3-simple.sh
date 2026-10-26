@@ -11,39 +11,83 @@
 # Treat unset variables as an error when substituting.
 # Pipelines return the exit status of the last command to exit with a non-zero status.
 set -eo pipefail -u
+#set -x
+source .env
 
-source ./set-env.sh
+# --- Logging ---
+# Colors are only used when stdout is a terminal and NO_COLOR is not set.
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+    C_RESET=$'\033[0m'; C_BLUE=$'\033[34m'; C_GREEN=$'\033[32m'; C_YELLOW=$'\033[33m'; C_RED=$'\033[31m'
+else
+    C_RESET=''; C_BLUE=''; C_GREEN=''; C_YELLOW=''; C_RED=''
+fi
+log_info()    { echo "${C_BLUE}[INFO]${C_RESET}    $*"; }
+log_success() { echo "${C_GREEN}[SUCCESS]${C_RESET} $*"; }
+log_warn()    { echo "${C_YELLOW}[WARN]${C_RESET}    $*" >&2; }
+log_error()   { echo "${C_RED}[ERROR]${C_RESET}   $*" >&2; }
+
+# Report the failing line if any command aborts the script (set -e).
+trap 'log_error "Restore failed at line $LINENO (exit code $?). The StatefulSet may still be scaled down."' ERR
+
+# --- Options ---
+# --preserve-identity: keep identity/secret files of the target controller when clearing the PVC
+# (secret.key, secrets/, license.xml, identity.key.enc, operations-center-*.xml, ...).
+# Can also be set via PRESERVE_IDENTITY=true in .env; the flag takes precedence.
+PRESERVE_IDENTITY="${PRESERVE_IDENTITY:-false}"
+for arg in "$@"; do
+    case "$arg" in
+        --preserve-identity) PRESERVE_IDENTITY=true ;;
+        -h|--help)
+            echo "Usage: $0 [--preserve-identity]"
+            exit 0
+            ;;
+        *)
+            log_error "Unknown option: $arg"
+            echo "Usage: $0 [--preserve-identity]" >&2
+            exit 1
+            ;;
+    esac
+done
 
 # --- Prerequisite Checks ---
 # Check if kubectl is installed and available in the PATH.
 if ! command -v kubectl &> /dev/null; then
-    echo "Error: kubectl command not found. Please install it and ensure it's in your PATH."
+    log_error "kubectl command not found. Please install it and ensure it's in your PATH."
     exit 1
+fi
+log_success "kubectl found."
+
+if [ "$PRESERVE_IDENTITY" = "true" ]; then
+    log_info "Identity files of the target controller will be preserved."
+else
+    log_warn "All existing data in the PVC will be deleted (use --preserve-identity to keep identity/secret files)."
 fi
 
 # Automatically derive the StatefulSet name from the POD name (e.g., 'cjoc-0' -> 'cjoc').
 CI_STATEFUL_SET="${CI_POD%-*}"
 
 # --- Restoration Process ---
-echo "Restoring Jenkins home for StatefulSet: $CI_STATEFUL_SET from Pod: $CI_POD"
+log_info "Restoring Jenkins home for StatefulSet: $CI_STATEFUL_SET from Pod: $CI_POD"
 
 # Scale down the StatefulSet to 0 replicas to safely modify the PVC.
-echo "Scaling down StatefulSet '$CI_STATEFUL_SET' to 0 replicas..."
+log_info "Scaling down StatefulSet '$CI_STATEFUL_SET' to 0 replicas..."
+kubectl get pod
 kubectl scale statefulset/"$CI_STATEFUL_SET" --replicas=0
+log_success "StatefulSet '$CI_STATEFUL_SET' scaled down."
 
 # Clean up any previously existing rescue-pod to ensure a clean start.
-echo "Deleting any existing rescue-pod..."
-kubectl delete pod rescue-pod --ignore-not-found=true
+log_info "Deleting any existing rescue-pod..."
+kubectl delete pod rescue-pod-$CI_STATEFUL_SET --ignore-not-found=true
 
 # Create a new 'rescue-pod' to perform the restore operation.
-echo "Creating rescue-pod to mount the PVC and restore data..."
+log_info "Creating rescue-pod to mount the PVC and restore data..."
 # The pod mounts the target PVC, and runs a container with AWS CLI to download and extract the backup.
 # We use a custom docker image see dockerbuild.sh and Dockerfile
-cat <<EOF | kubectl create -f -
+cat <<EOF | kubectl apply -f -
 kind: Pod
 apiVersion: v1
 metadata:
-  name: rescue-pod
+  name: rescue-pod-$CI_STATEFUL_SET
 spec:
   # The security context is set to match the user (1000) that Jenkins runs as, ensuring correct file permissions.
   securityContext:
@@ -51,19 +95,19 @@ spec:
     runAsGroup: 1000
     fsGroup: 1000
   volumes:
-    - name: rescue-storage
+    - name: rescue-storage-$CI_STATEFUL_SET
       # Mount the PVC associated with the Jenkins pod.
       persistentVolumeClaim:
         claimName: jenkins-home-$CI_POD
   containers:
-    - name: rescue-pod
+    - name: rescue-pod-$CI_STATEFUL_SET
       image: caternberg/aws-cli:1.3 # A container image with AWS CLI tools. See Dockerfile
       env:
       # Pass AWS credentials to the pod securely from environment variables.
-      - name: AWS_ACCESS_KEY_ID
-        value: "$AWS_ACCESS_KEY_ID"
-      - name: AWS_SECRET_ACCESS_KEY
-        value: "$AWS_SECRET_ACCESS_KEY"
+      # - name: AWS_ACCESS_KEY_ID
+      #   value: "$AWS_ACCESS_KEY_ID"
+      # - name: AWS_SECRET_ACCESS_KEY
+      #   value: "$AWS_SECRET_ACCESS_KEY"
       - name: JENKINS_HOME
         value: "/tmp/jenkins-home/"
       resources:
@@ -93,18 +137,23 @@ spec:
          # find /tmp/jenkins-home/ -mindepth 1 -delete
          # Delete all files and directories, but keep certain files on the target controller
          # https://docs.cloudbees.com/docs/cloudbees-ci-kb/latest/operations-center/how-to-reconnect-a-client-controller-stuck-on-registration
-         # The `-not -path`  filters might be adjusted depending on your restore usecase
-         find /tmp/jenkins-home/ -mindepth 1 \( \
-           -not -path "/tmp/jenkins-home/secret.key" \
-           -not -path "/tmp/jenkins-home/secrets" \
-           -not -path "/tmp/jenkins-home/secrets/*" \
-           -not -path "/tmp/jenkins-home/license.xml" \
-           -not -path "/tmp/jenkins-home/identity.key.enc" \
-           -not -path "/tmp/jenkins-home/operations-center-cloud.xml" \
-           -not -path "/tmp/jenkins-home/operations-center-client.xml" \
-           -not -path "/tmp/jenkins-home/com.cloudbees.opscenter.client.plugin.OperationsCenterRootAction.xml"\
-           \) \
-         -delete
+         # The ! -path  filters might be adjusted depending on your restore usecase
+         # Enabled with the --preserve-identity flag (or PRESERVE_IDENTITY=true in .env).
+         if [ "$PRESERVE_IDENTITY" = "true" ]; then
+           echo "Preserving controller identity files."
+           find /tmp/jenkins-home/ -mindepth 1 \\
+             ! -path "/tmp/jenkins-home/secret.key" \\
+             ! -path "/tmp/jenkins-home/secrets" \\
+             ! -path "/tmp/jenkins-home/secrets/*" \\
+             ! -path "/tmp/jenkins-home/license.xml" \\
+             ! -path "/tmp/jenkins-home/identity.key.enc" \\
+             ! -path "/tmp/jenkins-home/operations-center-cloud.xml" \\
+             ! -path "/tmp/jenkins-home/operations-center-client.xml" \\
+             ! -path "/tmp/jenkins-home/com.cloudbees.opscenter.client.plugin.OperationsCenterRootAction.xml" \\
+             -delete
+         else
+           find /tmp/jenkins-home/ -mindepth 1 -delete
+         fi
          echo "/tmp/jenkins-home deleted. preserved files \n"
          ls -ltr /tmp/jenkins-home
 
@@ -115,23 +164,30 @@ spec:
       volumeMounts:
         # Mount the PVC into the container at '/tmp/jenkins-home'.
         - mountPath: "/tmp/jenkins-home"
-          name: rescue-storage
+          name: rescue-storage-$CI_STATEFUL_SET
 EOF
+log_success "rescue-pod created."
 
-# Wait for the rescue-pod to enter the 'Completed' state.
-echo "Waiting for the rescue-pod to complete the restore operation..."
-kubectl wait --for=condition=Ready pod/rescue-pod --timeout=300s
+# Wait for the rescue-pod to enter the 'Ready' state.
+log_info "Waiting for the rescue-pod to complete the restore operation..."
+if ! kubectl wait --for=condition=Ready pod/rescue-pod-$CI_STATEFUL_SET --timeout=300s; then
+    log_error "rescue-pod did not become Ready within 300s. Inspect it with: kubectl describe pod rescue-pod-$CI_STATEFUL_SET"
+    exit 1
+fi
+log_success "rescue-pod is running."
 
 # Display the logs from the rescue-pod to verify the outcome.
-echo "Rescue pod finished. Displaying logs:"
-kubectl logs -f rescue-pod
+log_info "Displaying rescue-pod logs:"
+kubectl logs -f rescue-pod-$CI_STATEFUL_SET
 
 # Delete the rescue-pod as it is no longer needed.
-echo "Deleting the rescue-pod..."
-kubectl delete pod rescue-pod
+log_info "Deleting the rescue-pod..."
+kubectl delete pod rescue-pod-$CI_STATEFUL_SET
+log_success "rescue-pod deleted."
 
 # Scale the StatefulSet back up to 1 replica to bring the Jenkins instance online.
-echo "Scaling up StatefulSet '$CI_STATEFUL_SET' to 1 replica..."
+log_info "Scaling up StatefulSet '$CI_STATEFUL_SET' to 1 replica..."
 kubectl scale statefulset/"$CI_STATEFUL_SET" --replicas=1
+log_success "StatefulSet '$CI_STATEFUL_SET' scaled up."
 
-echo "Restore process completed successfully."
+log_success "Restore process completed."
