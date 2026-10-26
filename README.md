@@ -33,7 +33,7 @@ This table explains the purpose of each file in this repository.
 |----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
 | [backup.sh](backup.sh)                       | The main script to back up a controller's `jenkins_home` to an S3 bucket.                                                            |
 | [restore-s3-simple.sh](restore-s3-simple.sh) | The main script to restore a controller's `jenkins_home` from an S3 backup.                                                          |
-| [set-env.sh.template](set-env.sh.template)   | The scripts are designed to source a `set-env.sh` file to export necessary environment variables. You will need to create this file. |
+| [.env.template](.env.template)               | Template for the `.env` file sourced by `restore-s3-simple.sh`. Copy it to `.env` and fill in your values. `.env` is git-ignored.   |
 | [Dockerfile](Dockerfile)                     | For optional usage: Defines a custom Docker image containing essential tools (`aws-cli`, `kubectl`, `tar`) for the scripts.          |
 | [dockerbuild.sh](dockerbuild.sh)             | For optional usage: A helper script to build the custom Docker image defined in the `Dockerfile`.                                                        |
 
@@ -108,13 +108,17 @@ Ensure you have the following command-line tools installed and configured:
 *   `aws-cli`: Configured for access to your AWS account.
 
 #### b. Environment Variables
-The scripts require several environment variables to be set. The recommended way is to create a file named `set-env.sh` in the root of this repository and add the following lines.
+The scripts require several environment variables to be set. `restore-s3-simple.sh` sources a `.env` file from the directory you run it in.
 
-**Create a `set-env.sh` file from template:**
+**Create a `.env` file from the template:**
 
-```cp set-env.sh.template set-env.sh.```
+```bash
+cp .env.template .env
+```
 
-**Important:** Do not commit `set-env.sh` to version control if it contains sensitive information. Add it to your `.gitignore` file.
+**Important:** Do not commit `.env` to version control, it contains credentials. It is already listed in `.gitignore`.
+
+> **Note:** `backup.sh` still sources `./set-env.sh` (the old file name, whose template was removed). Until it is switched to `.env`, create a `set-env.sh` with the same variables for backups, or change the `source` line in `backup.sh`.
 
 ### 3. Build Custom Docker Image (OPTIONAL)
 The [restore-s3-simple.sh](restore-s3-simple.sh) script uses a custom Docker image (See [Dockerfile](Dockerfile)) that contains all the necessary tools.
@@ -137,7 +141,7 @@ If your Kubernetes cluster does not have local access to the image, you will nee
 
 ### Adjust Env Variables 
 
-In `set-env.sh` set the variables:
+In `.env` (or `set-env.sh` for `backup.sh`) set the variables:
 
 ```
 # The name of the CloudBees CI pod (e.g., cjoc-0 or my-controller-0).
@@ -159,7 +163,7 @@ export AWS_SECRET_ACCESS_KEY="..."
 ### Backing Up a Controller
 
 The `backup.sh` script creates a compressed tarball of a controller's `jenkins_home` and uploads it to S3.
-**IMPORTANT:** You **must** update the `CI_POD` variable in `set-env.sh`script
+**IMPORTANT:** You **must** update the `CI_POD` variable in the env file sourced by the script
 
 ```
 ...
@@ -180,7 +184,7 @@ Ensure that `/tmp` has sufficient capacity. Alternatively, you can mount a dedic
 
 The `restore-s3-simple.sh` script performs a full restore of a controller. It scales down the statefulset, creates a temporary "rescue pod" to download and extract the backup onto the PVC, and then scales the statefulset back up.
 
-**IMPORTANT:** You **must** update the `CI_POD` variable in `set-env.sh`script if you want to restore on a new controller
+**IMPORTANT:** You **must** update the `CI_POD` variable in `.env` if you want to restore on a new controller
 
 ```
 CI_POD="YOUR_TARGET_CONTROLLER_POD"
@@ -193,8 +197,20 @@ ARCHIVENAME="YOUR_BACKUP_ARCHIVE_NAME"
 
 **Usage:**
 ```bash
-./restore-s3-simple.sh
+./restore-s3-simple.sh [--preserve-identity]
 ```
+
+**Options:**
+
+| Option / variable                                | Description                                                                                                                                                                                                                                    |
+|--------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--preserve-identity` (or `PRESERVE_IDENTITY=true` in `.env`) | Keep the target controller's identity files when the PVC is cleared: `secret.key`, `secrets/`, `license.xml`, `identity.key.enc`, `operations-center-cloud.xml`, `operations-center-client.xml` and `com.cloudbees.opscenter.client.plugin.OperationsCenterRootAction.xml`. The flag overrides `.env`. Default: everything is deleted. |
+| `-h`, `--help`                                   | Print usage.                                                                                                                                                                                                                                   |
+| `NO_COLOR=1`                                     | Disable colored output.                                                                                                                                                                                                                        |
+
+With `--preserve-identity` the restored controller keeps the target's `secrets/`, not the ones from the backup. See [How to reconnect a client controller stuck on registration](https://docs.cloudbees.com/docs/cloudbees-ci-kb/latest/operations-center/how-to-reconnect-a-client-controller-stuck-on-registration) for when this is useful.
+
+**Output:** the script prints `[INFO]`, `[SUCCESS]`, `[WARN]` and `[ERROR]` messages (colored when run in a terminal). On any failure it reports the failing line. If that happens after scale-down, the StatefulSet stays at 0 replicas and you must scale it back up manually (`kubectl scale statefulset/<name> --replicas=1`).
 
 ---
 
