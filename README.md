@@ -6,8 +6,7 @@ This repository provides a set of scripts and tools for restoring CloudBees CI o
 
 There are three primary methods for handling backups with CloudBees CI:
 
-1. **CloudBees Backup Plugin:** A fully supported and integrated plugin that automates backups. See the official documentation for more details:
-    * [CloudBees Backup Plugin](https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/cloudbees-backup-plugin)
+1. **CloudBees Backup Plugin:** A fully supported and integrated plugin that automates backups. See the official documentation for more details: [CloudBees Backup Plugin](https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/cloudbees-backup-plugin)
 
 2. **Custom Scripts (This Repository):** A more hands-on, script-based approach that gives you granular control over the backup and restore process. This method is useful for disaster recovery scenarios, manual interventions, or when you need a customized workflow.
 
