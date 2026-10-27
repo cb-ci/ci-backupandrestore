@@ -295,8 +295,8 @@ ARCHIVENAME="YOUR_BACKUP_ARCHIVE_NAME"
 ```bash
 ./restoreControllerfromS3.sh [--preserve-identity] [--controller NAME [--backups-file FILE]] [--pod CI_POD] [--archive ARCHIVENAME]
 
-# example: restore a controller in a folder from its newest mapped backup
-./restoreControllerfromS3.sh --controller tmp-folder-controllers/controllerinfolder
+# example: restore a controller from its newest mapped backup
+./restoreControllerfromS3.sh --controller controller1
 ```
 
 Before anything is scaled down, the script checks that the archive exists and is readable in S3 (`aws s3api head-object` with the credentials from `.env`). With credentials set, a failure aborts the run without changing anything. Without `AWS_ACCESS_KEY_ID` (pod identity) the local check only warns.
@@ -306,7 +306,7 @@ Before anything is scaled down, the script checks that the archive exists and is
 | Option / variable                                | Description                                                                                                                                                                                                                                    |
 |--------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `--preserve-identity` (or `PRESERVE_IDENTITY=true` in `.env`) | Keep the target controller's identity files when the PVC is cleared: `secret.key`, `secrets/`, `license.xml`, `identity.key.enc`, `operations-center-cloud.xml`, `operations-center-client.xml` and `com.cloudbees.opscenter.client.plugin.OperationsCenterRootAction.xml`. The flag overrides `.env`. Default: everything is deleted. |
-| `--controller NAME`                              | Looks up the pod and the newest backup of the controller in `controllers-backups.json` (see "Mapping Backups to Controllers"). `NAME` is the `fullName` (`tmp-folder-controllers/controllerinfolder`), the Kubernetes name, or a short name if it is unique. Fails if the controller is unknown, the name is ambiguous, or no backup is mapped to it. `--pod` / `--archive` still take precedence. |
+| `--controller NAME`                              | Looks up the pod and the newest backup of the controller in `controllers-backups.json` (see "Mapping Backups to Controllers"). `NAME` is the controller's `fullName`, its Kubernetes name, or a short name if it is unique. Fails if the controller is unknown, the name is ambiguous, or no backup is mapped to it. `--pod` / `--archive` still take precedence. |
 | `--backups-file FILE`                            | JSON file used by `--controller` (default `controllers-backups.json`).                                                                                                                                                                         |
 | `--pod NAME`                                     | Overrides `CI_POD` from `.env`.                                                                                                                                                                                                                |
 | `--archive FILE`                                 | Overrides `ARCHIVENAME` from `.env`.                                                                                                                                                                                                           |
@@ -319,29 +319,29 @@ With `--preserve-identity` the restored controller keeps the target's `secrets/`
 
 ### Mapping Backups to Controllers
 
-`listControllersWithBackups.sh` first reads all controllers from CJOC (including controllers in folders and subfolders), then lists all `*.tar.gz` archives in `s3://$S3BUCKET/$S3BUCKET_FOLDER/` (values from `.env`) and maps each backup to a controller. `date` is the object's last-modified time reported by S3. Only that S3 folder is listed, not its subfolders. The result goes into one file (default `controllers-backups.json`):
+`listControllersWithBackups.sh` first reads the top-level controllers from CJOC (controllers in folders and subfolders are **not** included), then lists all `*.tar.gz` archives in `s3://$S3BUCKET/$S3BUCKET_FOLDER/` (values from `.env`) and maps each backup to a controller. `date` is the object's last-modified time reported by S3. Only that S3 folder is listed, not its subfolders. The result goes into one file (default `controllers-backups.json`):
 
 ```bash
 ./listControllersWithBackups.sh [output-file]
 ```
 
-It needs `CJOC_TOKEN=<user>:<api-token>` and `CBCI_URL=https://<host>` in `.env` in addition to the S3 variables. `MAX_DEPTH` (default 5) limits how many folder levels are searched.
+It needs `CJOC_TOKEN=<user>:<api-token>` and `CBCI_URL=https://<host>` in `.env` in addition to the S3 variables.
 
 ```json
 {
   "controllers": [
     {
-      "name": "controllerinfolder",
-      "fullName": "tmp-folder-controllers/controllerinfolder",
-      "folder": "tmp-folder-controllers",
-      "statefulSet": "tmp-folder-controllers-controllerinfolder",
-      "podName": "tmp-folder-controllers-controllerinfolder-0",
-      "endpoint": "https://ci.example.com/tmp-folder-controllers-controllerinfolder/",
+      "name": "controller1",
+      "fullName": "controller1",
+      "statefulSet": "controller1",
+      "podName": "controller1-0",
+      "endpoint": "https://ci.example.com/controller1/",
       "state": "APPROVED",
       "online": true,
       "version": "2.580.1.38223",
       "backups": [
-        { "file": "backup-tmp-folder-controllers-controllerinfolder-cluster-op-backup-controllers-16.<hash>.tar.gz", "date": "2026-10-27 09:00:00" }
+        { "file": "backup-controller1-cluster-op-backup-controllers-16.<hash>.tar.gz", "date": "2026-10-27 09:00:00" },
+        { "file": "backup-controller1-cluster-op-backup-controllers-15.<hash>.tar.gz", "date": "2026-10-26 16:14:45" }
       ]
     }
   ],
@@ -350,18 +350,18 @@ It needs `CJOC_TOKEN=<user>:<api-token>` and `CBCI_URL=https://<host>` in `.env`
       "file": "backup-controllerinfolder-cluster-op-backup-controllers-15.<hash>.tar.gz",
       "date": "2026-10-26 16:14:45",
       "controllerOriginal": "controllerinfolder",
-      "possibleControllers": ["tmp-folder-controllers/controllerinfolder"]
+      "possibleControllers": []
     }
   ]
 }
 ```
 
-* A controller is in a folder when its `fullName` contains a `/`; `folder` is the path before the last `/` (`null` otherwise).
-* `statefulSet` is the Kubernetes name: the last path segment of the controller's `endpoint`. For a controller in a folder it includes the folder path (`tmp-folder-controllers-controllerinfolder`). `podName` is `<statefulSet>-0`.
+* Only controllers directly under the Operations Center root are listed. A controller below a folder or subfolder (its `fullName` contains a `/`) is never included; its backups end up in `unmatchedBackups`.
+* `statefulSet` is the Kubernetes name: the last path segment of the controller's `endpoint`. `podName` is `<statefulSet>-0`.
 * A backup is mapped to a controller when the name inside its file name (`backup-<name>-cluster-op-backup-controllers-<n>.<hash>.tar.gz`), made Kubernetes-safe (lowercase, every character outside `a-z`, `0-9` and `-`, such as `.`, becomes `-`), equals the controller's `statefulSet`. `backups` is sorted newest first.
 * Archives that match no controller land in `unmatchedBackups`. `possibleControllers` lists controllers with the same short name. The file itself never assigns them; `restoreManyControllersFromS3.sh` can offer to do it interactively (see below).
 
-> **Folder controllers:** the matching uses the Kubernetes name, so the backup file name must contain the folder prefix for a controller in a folder (e.g. `backup-tmp-folder-controllers-controllerinfolder-cluster-op-backup-controllers-…`). Archives named only after the short name (`backup-controllerinfolder-…`) are not assigned and show up in `unmatchedBackups` with a `possibleControllers` hint.
+> **Controllers in folders:** they are intentionally left out, so their backups (e.g. `backup-controllerinfolder-…`) are reported in `unmatchedBackups` with an empty `possibleControllers`. To restore one anyway use `restoreControllerfromS3.sh --pod <statefulSet>-0 --archive <file>`.
 
 ### Restoring Many Controllers
 
@@ -374,16 +374,16 @@ It needs `CJOC_TOKEN=<user>:<api-token>` and `CBCI_URL=https://<host>` in `.env`
 ./restoreManyControllersFromS3.sh -j 4 --exclude workshop -- --preserve-identity
 ```
 
-* The pod for each controller is its `podName` from the file (`<statefulSet>-0`), so controllers in folders are restored to the right pod.
+* The pod for each controller is its `podName` from the file (`<statefulSet>-0`).
 * If a controller has several backups, the newest one (by `date`) is used. Controllers without a mapped backup are skipped with a warning.
-* **Unmatched backups:** they are listed with a warning, including the controller with the same short name. If exactly one controller has that short name (typical for a controller in a folder whose archives lack the folder prefix), the script shows the suggested assignment with the resulting pod and asks `(yes/no)`:
+* **Unmatched backups:** they are listed with a warning, including the controller with the same short name. If exactly one listed controller has that short name (only when the name in the file name differs from the controller's Kubernetes name), the script shows the suggested assignment with the resulting pod and asks `(yes/no)`:
   * `yes`: the backups are added to that controller in memory and it is included in the restore plan (newest backup). `controllers-backups.json` is not changed.
   * `no` (or no answer): unmatched backups are **not** restored.
   * The question is asked only in a terminal (also with `--dry-run`, so you can preview the plan). Without a terminal the script only warns. Backups with several possible controllers are never suggested.
   * For anything left unmatched, use `restoreControllerfromS3.sh --controller <name> --archive <file>`.
 * `-f FILE` selects another file (default `controllers-backups.json`). The old flat `backups.json` format is no longer read.
 * `-j N` (or the `JOBS` env var) sets the number of parallel restores. Default: 3.
-* `--only` / `--exclude` take comma-separated controller names, either the `fullName` (`tmp-folder-controllers/controllerinfolder`) or the Kubernetes name (`tmp-folder-controllers-controllerinfolder`).
+* `--only` / `--exclude` take comma-separated controller names, either the `fullName` or the Kubernetes name.
 * `--dry-run` prints the controller → pod → archive plan and exits without touching the cluster. Use it first.
 * Each restore logs to `logs/<statefulSet>.log`. A summary lists OK/FAIL per controller, and the script exits 1 if any restore failed.
 * Everything after `--` is passed to every `restoreControllerfromS3.sh` call.

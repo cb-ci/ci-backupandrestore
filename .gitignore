@@ -2,3 +2,6 @@
 .DS_Store
 .env
 /rescuePod.sh
+/logs/*
+controllers-backups.json
+backups.json

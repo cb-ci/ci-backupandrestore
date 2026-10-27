@@ -1,23 +1,23 @@
 #! /bin/bash
 
-# Lists all controllers (managed masters) from CJOC, including those in folders, lists all
-# *.tar.gz backups in s3://$S3BUCKET/$S3BUCKET_FOLDER/ and maps the backups to the controllers.
+# Lists the top-level controllers (managed masters) from CJOC, lists all *.tar.gz backups in
+# s3://$S3BUCKET/$S3BUCKET_FOLDER/ and maps the backups to the controllers.
+# Controllers below a folder or subfolder (fullName contains a "/") are NOT included.
 # Controllers are read via the CJOC REST API, backups via "aws s3 ls".
 #
 # Usage: ./listControllersWithBackups.sh [output-file]   (default: controllers-backups.json)
 #
 # Env (.env): CJOC_TOKEN=<user>:<api-token>, CBCI_URL=https://<host>, S3BUCKET, S3BUCKET_FOLDER, AWS_*
-# Optional:   MAX_DEPTH = folder nesting levels to descend (default 5)
 #
 # Mapping: the Kubernetes name of a controller is the last path segment of its `endpoint`
-# (e.g. .../tmp-folder-controllers-controllerinfolder/ -> tmp-folder-controllers-controllerinfolder),
-# so for a controller in a folder it includes the folder path. A backup belongs to a controller if the
-# name in its file name (backup-<name>-cluster-op-backup-controllers-<n>.<hash>.tar.gz), made
-# Kubernetes-safe (lowercase, every character outside a-z0-9- becomes "-"), equals that Kubernetes name.
+# (e.g. https://host/controller1/ -> controller1). A backup belongs to a controller if the name in its
+# file name (backup-<name>-cluster-op-backup-controllers-<n>.<hash>.tar.gz), made Kubernetes-safe
+# (lowercase, every character outside a-z0-9- becomes "-"), equals that Kubernetes name.
+# Backups of controllers that are not listed (e.g. controllers in folders) end up in "unmatchedBackups".
 #
 # Output:
 #   {
-#     "controllers": [ { name, fullName, folder, statefulSet, podName, endpoint, state, online, version,
+#     "controllers": [ { name, fullName, statefulSet, podName, endpoint, state, online, version,
 #                        backups: [ {file, date} ... newest first ] } ... ],
 #     "unmatchedBackups": [ { file, date, controllerOriginal, possibleControllers: [fullName ...] } ... ]
 #   }
@@ -32,7 +32,6 @@ source .env
 : "${CBCI_URL:?Set CBCI_URL to the base URL, e.g. https://ci.example.com}"
 
 OUTPUT_FILE="${1:-controllers-backups.json}"
-MAX_DEPTH="${MAX_DEPTH:-5}"
 MASTER_CLASS="com.cloudbees.opscenter.server.model.ManagedMaster"
 
 for tool in aws jq curl; do
@@ -43,14 +42,10 @@ for tool in aws jq curl; do
 done
 
 # --- 1. Controllers from CJOC ---
-# The tree parameter cannot recurse, so nest it MAX_DEPTH times:
-#   jobs[FIELDS,jobs[FIELDS,jobs[FIELDS]]]
+# Only the top level of CJOC is queried, so controllers inside folders are never returned.
 # Fields that a given item type does not have (e.g. "endpoint" on a folder) are ignored.
 FIELDS="_class,name,fullName,displayName,description,url,endpoint,approved,online,state,lastKnownVersion,validActions"
 TREE="jobs[${FIELDS}]"
-for ((i = 1; i < MAX_DEPTH; i++)); do
-    TREE="jobs[${FIELDS},${TREE}]"
-done
 
 echo "Reading controllers from ${CBCI_URL}/cjoc ..." >&2
 RESPONSE=$(curl -gsS --fail-with-body -u "${CJOC_TOKEN}" \
@@ -61,11 +56,11 @@ RESPONSE=$(curl -gsS --fail-with-body -u "${CJOC_TOKEN}" \
     exit 1
 }
 
-# Strip the trailing "HTTP <code>" line added by -w, walk folders recursively,
-# keep only managed masters and drop the nested "jobs" key from each result.
+# Strip the trailing "HTTP <code>" line added by -w and keep only managed masters. Folders are skipped;
+# the extra fullName check makes sure nothing below a folder (fullName with a "/") is ever included.
 CONTROLLERS=$(echo "${RESPONSE}" | sed '$d' \
     | jq --arg cls "${MASTER_CLASS}" \
-        '[.jobs[]? | recurse(.jobs[]?) | select(._class == $cls) | del(.jobs)]')
+        '[.jobs[]? | select(._class == $cls and ((.fullName // "") | contains("/") | not)) | del(.jobs)]')
 
 # --- 2. Backups from S3 ---
 # 'aws s3 ls' prints: <date> <time> <size> <key>. Keep only *.tar.gz entries.
@@ -94,7 +89,6 @@ jq -n --argjson controllers "$CONTROLLERS" --argjson backups "$BACKUPS" '
         | {
             name: .name,
             fullName: .fullName,
-            folder: (.fullName | split("/") | .[:-1] | join("/") | if length > 0 then . else null end),
             statefulSet: $k8s,
             podName: ($k8s + "-0"),
             endpoint: .endpoint,
