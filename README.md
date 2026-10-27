@@ -13,7 +13,7 @@ There are three primary methods for handling backups with CloudBees CI:
 3. **CloudBees Cluster backup Operation**
 See [CloudBees Cluster backup Operation](https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/backup-cluster)
 
-This repository focuses on the third approach. The scripts in this repositories assumes a cluster backup operatio was used to create backups for controllers and store them in S3.
+**This repository focuses on the third approach. The scripts in this repositories assumes a cluster backup operation was used to create backups for controllers and store them in S3. The scripts are used to restore controllers from those backups. Other approaches like using volume snapshots (EBS Snapshots f.e.),are not covered in this repository.**
 
 See CloudBees documentation for background:
 
