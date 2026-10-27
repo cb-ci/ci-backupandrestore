@@ -1,17 +1,20 @@
 # CloudBees CI Backup and Restore Scripts
 
-This repository provides a set of scripts and tools for backing up and restoring CloudBees CI on a Kubernetes environment (like AWS EKS) using AWS S3 for storage.
+This repository provides a set of scripts and tools for restoring CloudBees CI on a Kubernetes environment (like AWS EKS) using AWS S3 for storage (JENKINS_HOME). The repository is a proof of concept and not recommended for production usage without further adjustments and reviews.
 
 ## Overview
 
-There are two primary methods for handling backups with CloudBees CI:
+There are three primary methods for handling backups with CloudBees CI:
 
 1. **CloudBees Backup Plugin:** A fully supported and integrated plugin that automates backups. See the official documentation for more details:
     * [CloudBees Backup Plugin](https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/cloudbees-backup-plugin)
 
 2. **Custom Scripts (This Repository):** A more hands-on, script-based approach that gives you granular control over the backup and restore process. This method is useful for disaster recovery scenarios, manual interventions, or when you need a customized workflow.
 
-This repository focuses on the second approach.
+3. **CloudBees Cluster backup Operation**
+See [CloudBees Cluster backup Operation](https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/backup-cluster)
+
+This repository focuses on the third approach. The scripts in this repositories assumes a cluster backup operatio was used to create backups for controllers and store them in S3.
 
 See CloudBees documentation for background:
 
@@ -30,7 +33,7 @@ This table explains the purpose of each file in this repository.
 
 | File                                         | Description                                                                                                                          |
 |----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
-| [backup.sh](backup.sh)                       | The main script to back up a controller's `jenkins_home` to an S3 bucket.                                                            |
+| [backup.sh](backup.sh)                       | Simple script to back up a single controller's `jenkins_home` to an S3 bucket.                                                            |
 | [restoreControllerfromS3.sh](restoreControllerfromS3.sh) | The main script to restore a controller's `jenkins_home` from an S3 backup.                                                          |
 | [listControllersWithBackups.sh](listControllersWithBackups.sh) | Combines the controller list from CJOC and the S3 backup list and maps each backup to its controller (`controllers-backups.json`). |
 | [restoreManyControllersFromS3.sh](restoreManyControllersFromS3.sh) | Reads `controllers-backups.json` and restores many controllers in parallel by calling `restoreControllerfromS3.sh` for each. |
@@ -461,7 +464,7 @@ The `backup-<controller>-cluster-op-backup-controllers-<n>.<hash>.tar.gz` files 
 Settings of the example job that matter for these scripts:
 
 | Setting in the YAML | Value in the example | Why it matters here |
-|---|---|---|
+| --- | --- | --- |
 | `name` / `displayName` | `cluster-op-backup-controllers` | Becomes the middle part of the archive file name. |
 | `store.s3Store.bucketName` | `<your-bucket>` | Must be the bucket in `S3BUCKET` of `.env`. |
 | `store.s3Store.bucketFolder` | `cjoc-root-controllers` | Must be the folder in `S3BUCKET_FOLDER` of `.env`. The scripts only list this one folder. |
@@ -497,7 +500,7 @@ controllerOriginal: (.[3] | capture("^backup-(?<c>.+)-cluster-op-backup-controll
 * a backup belongs to a controller when the normalized name equals its `statefulSet`. Everything else goes to `unmatchedBackups`.
 
 | Archive file name | `controllerOriginal` | Normalized | Result |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `backup-controller1-cluster-op-backup-controllers-16.<hash>.tar.gz` | `controller1` | `controller1` | mapped to `controller1` |
 | `backup-controller-upgradetest-1-2.568.3.37913-cluster-op-backup-controllers-16.<hash>.tar.gz` | `controller-upgradetest-1-2.568.3.37913` | `controller-upgradetest-1-2-568-3-37913` | mapped to the controller whose `statefulSet` is that name |
 | `backup-controllerinfolder-cluster-op-backup-controllers-15.<hash>.tar.gz` | `controllerinfolder` | `controllerinfolder` | unmatched (the controller is in a folder, so it is not listed) |
