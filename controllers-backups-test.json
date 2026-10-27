@@ -1,0 +1,36 @@
+{
+  "controllers": [
+    {
+      "name": "controller-upgradetest-1-2.568.3.37913",
+      "fullName": "controller-upgradetest-1-2.568.3.37913",
+      "statefulSet": "controller-upgradetest-1-2-568-3-37913",
+      "podName": "controller-upgradetest-1-2-568-3-37913-0",
+      "endpoint": "https://ci.acaternberg.aws.ps.beescloud.com/controller-upgradetest-1-2-568-3-37913/",
+      "state": "APPROVED",
+      "online": true,
+      "version": "2.568.3.37913",
+      "backups": [
+        {
+          "file": "backup-controller-upgradetest-1-2.568.3.37913-cluster-op-backup-controllers-21.513217028737ad765e3180ac5eb61faa.tar.gz",
+          "date": "2026-10-27 08:44:42"
+        }
+      ]
+    },
+    {
+      "name": "controller1",
+      "fullName": "controller1",
+      "statefulSet": "controller1",
+      "podName": "controller1-0",
+      "endpoint": "https://ci.acaternberg.aws.ps.beescloud.com/controller1/",
+      "state": "APPROVED",
+      "online": true,
+      "version": "2.580.1.38223",
+      "backups": [
+        {
+          "file": "backup-controller1-cluster-op-backup-controllers-21.14fc2c61398c3508084ed61e615e695e.tar.gz",
+          "date": "2026-10-27 08:44:43"
+        }
+      ]
+    }
+  ]
+}

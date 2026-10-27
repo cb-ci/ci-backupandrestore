@@ -156,42 +156,14 @@ If your Kubernetes cluster does not have local access to the image, you will nee
 
 ### Typical Workflow
 
-1. **Back up** controllers into the S3 folder with the cluster backup job (see [cluster-op.backup-controllers.yaml](cluster-op.backup-controllers.yaml)), the CloudBees Backup plugin, or `backup.sh`. Only archives named by the cluster backup job are mapped to controllers automatically.
+1. **Back up** controllers into the S3 folder with the cluster backup job (see [cluster-op.backup-controllers.yaml](cluster-op.backup-controllers.yaml)).Only archives named by the cluster backup job are mapped to controllers automatically.
 2. **Map** the backups to the controllers: `./listControllersWithBackups.sh` writes `controllers-backups.json`.
 3. **Check the plan:** `./restoreManyControllersFromS3.sh --dry-run` shows controller → pod → archive and warns about controllers without a backup and about unmatched backups.
 4. **Restore** one controller with `./restoreControllerfromS3.sh --controller <name>`, or many in parallel with `./restoreManyControllersFromS3.sh -j 3`.
 
 ### Adjust Env Variables
 
-In `.env`set the variables:
-
-```
-# The name of the CloudBees CI pod (e.g., cjoc-0 or my-controller-0).
-# Optional for the restore scripts when --controller (or --pod) is used.
-CI_POD="POD_NAME"
-# The name of the S3 bucket where the backup is stored. 
-S3BUCKET="YOUR_S3_BUCKET"
-# The folder path within the S3 bucket. 
-S3BUCKET_FOLDER="YOUR_S3_BACKUP_FOLDER"
-# The filename of the backup archive.
-# Optional for the restore scripts when --controller (or --archive) is used.
-ARCHIVENAME="YOUR_BACKUP_ARCHIVE_NAME" # for example backup-mypod-12-03-2025.tar.gz
-
-# Only for listControllersWithBackups.sh: Operations Center URL and credentials.
-CJOC_TOKEN="<user>:<api-token>"
-CBCI_URL="https://<your-ci-host>"
-
-# Kubernetes Config
-export KUBECONFIG="/path/to/your/kubeconfig"
-
-export AWS_ACCESS_KEY_ID="..."
-export AWS_SECRET_ACCESS_KEY="..."
-# Only for temporary credentials (SSO / assumed role, access keys starting with 'ASIA'):
-# export AWS_SESSION_TOKEN="..."
-
-# Optional: keep the target controller's identity files on restore (see --preserve-identity)
-# PRESERVE_IDENTITY=true
-```
+See `.env` and set the variables
 
 > **Security note:** `restoreControllerfromS3.sh` passes these AWS credentials into the rescue-pod spec as plain environment values, so anyone who can read the pod spec (`kubectl get pod -o yaml`) can read them. If your cluster supports pod identity (e.g. IRSA / EKS Pod Identity), leave `AWS_ACCESS_KEY_ID` unset: the script then adds no credentials to the pod spec and the pod uses its identity. Use least-privilege credentials with the IAM policy above either way.
 
@@ -278,55 +250,6 @@ sequenceDiagram
 ```
 
 If the restore fails inside the rescue-pod, the script exits 1 **without** scaling the StatefulSet back up (the PVC may be partially restored) and keeps the rescue-pod for inspection. Other failures log the failing line and exit; see the **Output** note below.
-
-**Restore sequence:**
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant Script as restore-s3-simple.sh
-    participant K8s as Kubernetes API (kubectl)
-    participant STS as StatefulSet (controller/CJOC)
-    participant Rescue as rescue-pod (aws-cli image)
-    participant PVC as PVC jenkins-home-CI_POD
-    participant S3 as AWS S3
-
-    User->>Script: ./restore-s3-simple.sh [--preserve-identity]
-    Script->>Script: source .env, parse flags, check kubectl
-    Script->>Script: derive StatefulSet name from CI_POD (cjoc-0 -> cjoc)
-
-    Script->>K8s: scale statefulset --replicas=0
-    K8s->>STS: stop controller pod
-    Note over STS,PVC: PVC is no longer in use
-
-    Script->>K8s: delete existing rescue-pod (if any)
-    Script->>K8s: apply rescue-pod manifest
-    K8s->>Rescue: create pod, mount PVC at /tmp/jenkins-home
-    Rescue-->>PVC: mount
-    Script->>K8s: wait for pod Ready (timeout 300s)
-
-    rect rgb(235, 245, 255)
-    Note over Rescue,S3: Commands run inside the rescue-pod
-    Rescue->>S3: aws s3 cp s3://S3BUCKET/S3BUCKET_FOLDER/ARCHIVENAME
-    S3-->>Rescue: backup archive in /tmp
-    alt --preserve-identity
-        Rescue->>PVC: delete everything except identity files (secret.key, secrets/, license.xml, ...)
-    else default
-        Rescue->>PVC: delete everything
-    end
-    Rescue->>PVC: tar -xvzf archive into /tmp/jenkins-home
-    end
-
-    Script->>K8s: kubectl logs -f rescue-pod
-    K8s-->>Script: stream pod logs until the pod finishes
-    Script->>K8s: delete rescue-pod
-    Script->>K8s: scale statefulset --replicas=1
-    K8s->>STS: start controller with restored jenkins home
-    Script-->>User: Restore process completed
-```
-
-If any step fails, the script logs the failing line and exits. The StatefulSet then stays scaled down and the rescue-pod may still exist, see the **Output** note below.
 
 **IMPORTANT:** You **must** update the `CI_POD` variable in `.env` if you want to restore on a new controller
 
