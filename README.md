@@ -45,18 +45,18 @@ This table explains the purpose of each file in this repository.
 
 ## Requirements
 
-* AWS Access: S3 Bucket and required IAM permissions/access keys.
+* AWS Access: S3 Bucket and required IAM permissions/access keys. Alternatively, the scripts can use pod identity if the controller is running on EKS (or a cluster that supports pod identity).
 * Kubernetes Access: kubectl access to the cluster hosting the CloudBees CI Controllers.
-* Controller States (Backup/Restore):
-  * Source: The controller to be backed up must be running.
-  * Target: A new controller must be running and connected to Operations Center.
+* Controller States (Backup):
+  * Source Controller: The controller to be backed up must be running and connected to the Operations Center.
+  * Optional Target Controller (When restoring to a new controller): A new controller must be running and connected to Operations Center.
 * Operations Center access: a CJOC user and API token (`CJOC_TOKEN`), only needed by `listControllersWithBackups.sh` to read the controller list.
-* Tooling: Access to a Docker registry to pull the necessary tools image (containing aws-cli, etc.).
-* Optional: EC2 VM (bastion host) to ensure faster transfer speeds/throughput (same VPC/subnet recommended).
+* Tooling: Access to a Docker registry to pull the necessary tools image (containing aws-cli, etc.). Alternatively, you can build the image locally using [dockerbuild.sh](dockerbuild.sh).
 
 **Bandwidth Warning:**
 
 * Copying large .tar files locally (your laptop) and back to S3 will be slow. I recommend running the [backup.sh](backup.sh) script and S3 copy operation directly from an EC2 VM inside the same AWS VPC/subnet for max speed.
+* The restore scripts below do not download the backup files to a local machine. They run inside the cluster where the controllers are running.
 
 ## Setup and Configuration
 
@@ -65,6 +65,7 @@ Before using the scripts, you need to set up your AWS environment, local machine
 ### 1. AWS Setup
 
 You need an S3 bucket to store the backups and an IAM User with the correct permissions to access it.
+**For an advacned setup using EKS pod identity see [Using IAM roles for Service Accounts (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html). and example  <https://github.com/cb-ci/ci-gateway-api/blob/main/eks/eksctl/07-createS3BackupBucket.sh>**
 
 #### a. Create S3 Bucket
 
@@ -129,10 +130,6 @@ The scripts require several environment variables to be set. `restoreControllerf
 ```bash
 cp .env.template .env
 ```
-
-**Important:** Do not commit `.env` to version control, it contains credentials. It is already listed in `.gitignore`.
-
-> **Note:** `backup.sh` still sources `./set-env.sh` (the old file name, whose template was removed). Until it is switched to `.env`, create a `set-env.sh` with the same variables for backups, or change the `source` line in `backup.sh`.
 
 ### 3. Build Custom Docker Image (OPTIONAL)
 
