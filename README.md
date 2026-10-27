@@ -446,6 +446,11 @@ Reads `controllers-backups.json` and runs `restoreControllerfromS3.sh` once per 
 
 # example: 4 in parallel, skip one controller, keep identity files
 ./restoreManyControllersFromS3.sh -j 4 --exclude workshop -- --preserve-identity
+
+# example: use another mapping file (-f) instead of the default controllers-backups.json,
+# e.g. one written by "./listControllersWithBackups.sh my-backups.json" or a copy you trimmed by hand
+./restoreManyControllersFromS3.sh -f my-backups.json --dry-run
+./restoreManyControllersFromS3.sh -f my-backups.json -j 2
 ```
 
 **Behavior:**
