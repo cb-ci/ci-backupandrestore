@@ -3,11 +3,10 @@
 # Restores many controllers in parallel from the archives listed in controllers-backups.json
 # (created by listControllersWithBackups.sh) by calling restoreControllerfromS3.sh once per controller.
 #
-# - Pod name: "podName" of the controller in the file (<kubernetes name from the endpoint>-0, so controllers
-#   in folders work too, e.g. tmp-folder-controllers-controllerinfolder-0).
+# - Pod name: "podName" of the controller in the file (<kubernetes name from the endpoint>-0).
 # - Controllers without a mapped backup are skipped; if there are several backups, the newest is used.
-# - Unmatched backups (e.g. 'backup-controllerinfolder-...' for a controller in a folder) are reported. If exactly one
-#   controller has the same short name, the script asks (yes/no, interactive only) whether to assign them to it.
+# - Unmatched backups (e.g. of controllers in folders, which are not listed) are reported. If exactly one
+#   listed controller has the same short name, the script asks (yes/no, interactive only) whether to assign them to it.
 # - Output of each restore goes to <log-dir>/<statefulSet>.log; a summary is printed at the end.
 
 set -eo pipefail -u

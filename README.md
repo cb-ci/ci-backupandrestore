@@ -18,6 +18,7 @@ See CloudBees documentation for background:
 * <https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/cloudbees-backup-plugin>
 * <https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/>
 * <https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/kubernetes>
+* <https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/backup-cluster>
 * <https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/backup-manually>
 * <https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/restoring-from-backup-plugin>
 
@@ -36,6 +37,7 @@ This table explains the purpose of each file in this repository.
 | [.env.template](.env.template)               | Template for the `.env` file sourced by `restoreControllerfromS3.sh`. Copy it to `.env` and fill in your values. `.env` is git-ignored.   |
 | [Dockerfile](Dockerfile)                     | For optional usage: Defines a custom Docker image containing essential tools (`aws-cli`, `kubectl`, `tar`) for the scripts.          |
 | [dockerbuild.sh](dockerbuild.sh)             | For optional usage: A helper script to build the custom Docker image defined in the `Dockerfile`.                                                        |
+| [cluster-op.backup-controllers.yaml](cluster-op.backup-controllers.yaml) | CasC definition of the Operations Center cluster backup job (`cluster-op-backup-controllers`) that creates the archives `listControllersWithBackups.sh` maps. Its name is part of every archive file name. |
 
 ---
 
@@ -155,7 +157,7 @@ If your Kubernetes cluster does not have local access to the image, you will nee
 
 ### Typical Workflow
 
-1. **Back up** controllers (with the CloudBees Backup plugin or `backup.sh`) into the S3 folder.
+1. **Back up** controllers into the S3 folder with the cluster backup job (see [cluster-op.backup-controllers.yaml](cluster-op.backup-controllers.yaml)), the CloudBees Backup plugin, or `backup.sh`. Only archives named by the cluster backup job are mapped to controllers automatically.
 2. **Map** the backups to the controllers: `./listControllersWithBackups.sh` writes `controllers-backups.json`.
 3. **Check the plan:** `./restoreManyControllersFromS3.sh --dry-run` shows controller → pod → archive and warns about controllers without a backup and about unmatched backups.
 4. **Restore** one controller with `./restoreControllerfromS3.sh --controller <name>`, or many in parallel with `./restoreManyControllersFromS3.sh -j 3`.
@@ -327,6 +329,44 @@ With `--preserve-identity` the restored controller keeps the target's `secrets/`
 
 It needs `CJOC_TOKEN=<user>:<api-token>` and `CBCI_URL=https://<host>` in `.env` in addition to the S3 variables.
 
+**Mapping sequence:**
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant Script as listControllersWithBackups.sh
+    participant Env as .env
+    participant CJOC as CJOC REST API (curl)
+    participant S3 as AWS S3 (aws s3 ls)
+    participant JQ as jq
+    participant Out as controllers-backups.json
+
+    User->>Script: ./listControllersWithBackups.sh [output-file]
+    Script->>Env: source CJOC_TOKEN, CBCI_URL, S3BUCKET, S3BUCKET_FOLDER, AWS credentials
+    Script->>Script: check that aws, jq and curl exist and CJOC_TOKEN and CBCI_URL are set
+
+    Script->>CJOC: GET /cjoc/api/json?tree=jobs[...] (top level only)
+    alt request fails
+        CJOC-->>Script: HTTP error
+        Script-->>User: print the first lines of the response, exit 1
+    else success
+        CJOC-->>Script: top-level items (controllers and folders)
+    end
+    Script->>JQ: keep ManagedMaster items, drop any fullName that contains a slash
+    JQ-->>Script: controllers
+
+    Script->>S3: aws s3 ls s3://S3BUCKET/S3BUCKET_FOLDER/
+    S3-->>Script: object listing (date, time, size, key)
+    Script->>JQ: keep *.tar.gz, parse the controller name out of each file name
+    JQ-->>Script: backups (file, date, controllerOriginal)
+
+    Script->>JQ: derive statefulSet and podName from each endpoint, make names Kubernetes-safe
+    Note over Script,JQ: backup belongs to a controller if its safe name equals the statefulSet.<br/>All others go to unmatchedBackups with possibleControllers (same short name).
+    JQ-->>Out: write controllers with backups (newest first) and unmatchedBackups
+    Script-->>User: Wrote controllers-backups.json, N controllers, M with backups, K unmatched
+```
+
 ```json
 {
   "controllers": [
@@ -358,10 +398,63 @@ It needs `CJOC_TOKEN=<user>:<api-token>` and `CBCI_URL=https://<host>` in `.env`
 
 * Only controllers directly under the Operations Center root are listed. A controller below a folder or subfolder (its `fullName` contains a `/`) is never included; its backups end up in `unmatchedBackups`.
 * `statefulSet` is the Kubernetes name: the last path segment of the controller's `endpoint`. `podName` is `<statefulSet>-0`.
-* A backup is mapped to a controller when the name inside its file name (`backup-<name>-cluster-op-backup-controllers-<n>.<hash>.tar.gz`), made Kubernetes-safe (lowercase, every character outside `a-z`, `0-9` and `-`, such as `.`, becomes `-`), equals the controller's `statefulSet`. `backups` is sorted newest first.
+* A backup is mapped to a controller when the name inside its file name (`backup-<name>-<job name>-<n>.<hash>.tar.gz`, where `<job name>` is `cluster-op-backup-controllers`, the name of the cluster backup job), made Kubernetes-safe (lowercase, every character outside `a-z`, `0-9` and `-`, such as `.`, becomes `-`), equals the controller's `statefulSet`. `backups` is sorted newest first.
 * Archives that match no controller land in `unmatchedBackups`. `possibleControllers` lists controllers with the same short name. The file itself never assigns them; `restoreManyControllersFromS3.sh` can offer to do it interactively (see below).
 
 > **Controllers in folders:** they are intentionally left out, so their backups (e.g. `backup-controllerinfolder-…`) are reported in `unmatchedBackups` with an empty `possibleControllers`. To restore one anyway use `restoreControllerfromS3.sh --pod <statefulSet>-0 --archive <file>`.
+
+#### Where the archives come from: the cluster backup job
+
+The `backup-<controller>-cluster-op-backup-controllers-<n>.<hash>.tar.gz` files that `listControllersWithBackups.sh` maps are created by the CloudBees CI **cluster backup operation**, not by `backup.sh`. It runs from Operations Center as an item of type *Cluster Operations* with a *Backup Controller* step, which can back up all controllers or a subset, and it needs the CloudBees Backup plugin on Operations Center. See [Back up a cluster](https://docs.cloudbees.com/docs/cloudbees-ci/latest/backup-restore/backup-cluster).
+
+**The `cluster-op-backup-controllers` part of the file name is the name of that backup job.** The job in this repository is defined as a CasC item, [cluster-op.backup-controllers.yaml](cluster-op.backup-controllers.yaml) (`kind: clusterOpProject`, `name: cluster-op-backup-controllers`). If you create the job with another name, the archives are named after it and the `capture(...)` expression in `listControllersWithBackups.sh` must be changed to match (see below).
+
+Settings of the example job that matter for these scripts:
+
+| Setting in the YAML | Value in the example | Why it matters here |
+|---|---|---|
+| `name` / `displayName` | `cluster-op-backup-controllers` | Becomes the middle part of the archive file name. |
+| `store.s3Store.bucketName` | `<your-bucket>` | Must be the bucket in `S3BUCKET` of `.env`. |
+| `store.s3Store.bucketFolder` | `cjoc-root-controllers` | Must be the folder in `S3BUCKET_FOLDER` of `.env`. The scripts only list this one folder. |
+| `store.s3Store.region`, `sse` | `us-east-1`, `true` | Region of the bucket, archives are encrypted at rest with S3 server-side encryption. |
+| `format` | `tarGzFormat` | The archives are `.tar.gz`, which is what `restoreControllerfromS3.sh` extracts (`tar -xzf`). |
+| `retentionPolicy` | `upToNRetentionPolicy`, `n: 3` | The job keeps only a limited number of backups, so `controllers-backups.json` normally lists only the most recent ones. Check the CloudBees documentation for the exact scope of the retention. |
+| `operations[].filters` | `isMasterOnlineFilter`, `isManagedMasterFilter`, `matchingPath: '*'` | Only managed controllers that are **online** when the job runs get a backup. A controller that was offline has no archive and shows up with an empty `backups` list. |
+| `inParallel`, `timeoutSeconds` | `10`, `300` | The job backs up up to 10 controllers at the same time. |
+| `subjects` | `jobConfigurationSubject`, `systemConfigurationSubject` (`omitMasterKey: false`) | What is in the archive: job and system configuration, including the master key (treat the archives as secrets). Only these two subjects are declared, so data outside them (for example build records) may not be in the archive. `restoreControllerfromS3.sh` clears the PVC before extracting, so check what an archive contains (`tar -tzf <file>`) before restoring over a controller. |
+
+The `<n>` and `<hash>` parts of the file name are not documented by CloudBees. In our bucket `<n>` increased between two runs of the job (15, then 16) and `<hash>` stayed the same for a given controller, but the scripts do not rely on either.
+
+#### How archive file names are mapped to controllers
+
+Only `listControllersWithBackups.sh` parses archive file names. The restore scripts never do: they take the archive from `controllers-backups.json` (or from `--archive` / `ARCHIVENAME`, used as given). `backup.sh` does not enforce any naming either, it names the archive exactly as `ARCHIVENAME`.
+
+The mapping has two steps.
+
+**1. Extract the name from the file name.** `listControllersWithBackups.sh` (the `BACKUPS` step) runs this `jq` expression on every `*.tar.gz` key of the S3 folder:
+
+```jq
+controllerOriginal: (.[3] | capture("^backup-(?<c>.+)-cluster-op-backup-controllers-").c? // null)
+```
+
+* The file name must start with `backup-`.
+* The controller name is everything between that leading `backup-` and `-cluster-op-backup-controllers-`. The `.+` is greedy, so a controller name may itself contain dashes and dots.
+* The expression is not anchored at the end: whatever follows `-cluster-op-backup-controllers-` (for example `16.<hash>` and `.tar.gz`) is not interpreted.
+* If the file name does not match, `controllerOriginal` is `null` and the archive can never be mapped.
+
+**2. Normalize and compare.** The extracted name is made Kubernetes-safe and compared with the controller's `statefulSet`, which is the last path segment of the controller's `endpoint`:
+
+* lowercase the name, replace every character outside `a-z`, `0-9` and `-` (for example `.` or `_`) with `-`, and strip leading and trailing `-`;
+* a backup belongs to a controller when the normalized name equals its `statefulSet`. Everything else goes to `unmatchedBackups`.
+
+| Archive file name | `controllerOriginal` | Normalized | Result |
+|---|---|---|---|
+| `backup-controller1-cluster-op-backup-controllers-16.<hash>.tar.gz` | `controller1` | `controller1` | mapped to `controller1` |
+| `backup-controller-upgradetest-1-2.568.3.37913-cluster-op-backup-controllers-16.<hash>.tar.gz` | `controller-upgradetest-1-2.568.3.37913` | `controller-upgradetest-1-2-568-3-37913` | mapped to the controller whose `statefulSet` is that name |
+| `backup-controllerinfolder-cluster-op-backup-controllers-15.<hash>.tar.gz` | `controllerinfolder` | `controllerinfolder` | unmatched (the controller is in a folder, so it is not listed) |
+| `backup-mypod-12-03-2025.tar.gz` (typical `backup.sh` name) | `null` | | unmatched (no `-cluster-op-backup-controllers-` part) |
+
+> **If your archives are named differently** (a cluster backup job with another name, `backup.sh`, or another backup job), they will show up in `unmatchedBackups`. Either name the job `cluster-op-backup-controllers`, or replace `cluster-op-backup-controllers` in the `capture(...)` expression of `listControllersWithBackups.sh` with your job name, or restore them explicitly with `restoreControllerfromS3.sh --pod <statefulSet>-0 --archive <file>`.
 
 ### Restoring Many Controllers
 
@@ -372,6 +465,63 @@ It needs `CJOC_TOKEN=<user>:<api-token>` and `CBCI_URL=https://<host>` in `.env`
 
 # example: 4 in parallel, skip one controller, keep identity files
 ./restoreManyControllersFromS3.sh -j 4 --exclude workshop -- --preserve-identity
+```
+
+**Many-restore sequence:**
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant Script as restoreManyControllersFromS3.sh
+    participant File as controllers-backups.json
+    participant Restore as restoreControllerfromS3.sh (one call per controller)
+    participant Logs as logs directory
+
+    User->>Script: ./restoreManyControllersFromS3.sh [options] [-- extra args]
+    Script->>Script: parse options, check jq and kubectl, validate jobs count
+    Script->>File: read and validate (must contain a controllers array)
+
+    opt unmatched backups exist
+        Script-->>User: WARN list unmatched backups and controllers with the same short name
+        opt exactly one possible controller and stdin is a terminal
+            Script->>User: show suggested assignment and resulting pod, ask yes or no
+            User-->>Script: answer
+            alt yes
+                Script->>Script: add the backups to that controller in memory (file is not changed)
+            else no or no answer
+                Script->>Script: keep them unmatched, they will not be restored
+            end
+        end
+    end
+
+    Script->>Script: build plan, one entry per controller with a backup (newest backup wins)
+    Script-->>User: WARN controllers without a mapped backup are skipped
+    Script->>Script: apply --only and --exclude
+    alt plan is empty
+        Script-->>User: nothing to restore, exit 1
+    end
+    Script-->>User: print plan (controller, pod, archive)
+
+    alt --dry-run
+        Script-->>User: dry run, nothing restored, exit 0
+    else restore
+        Script->>Logs: create log directory, remove old status files
+        par up to N restores in parallel (xargs -P)
+            Script->>Restore: --pod podName --archive file plus extra args (first controller)
+            Restore-->>Logs: write controller.log and controller.status (exit code)
+        and
+            Script->>Restore: --pod podName --archive file plus extra args (next controller)
+            Restore-->>Logs: write controller.log and controller.status (exit code)
+        end
+        Script->>Logs: read all status files
+        Script-->>User: summary with OK or FAIL per controller
+        alt any restore failed
+            Script-->>User: N restore(s) failed, exit 1 (StatefulSet may still be scaled down)
+        else all succeeded
+            Script-->>User: All restores completed successfully
+        end
+    end
 ```
 
 * The pod for each controller is its `podName` from the file (`<statefulSet>-0`).

@@ -1,0 +1,53 @@
+kind: clusterOpProject
+name: cluster-op-backup-controllers
+blockBuildWhenDownstreamBuilding: false
+blockBuildWhenUpstreamBuilding: false
+concurrentBuild: true
+description: ''
+disabled: false
+displayName: cluster-op-backup-controllers
+operations:
+- managedMasterClusterOperation:
+    failureMode: TIDY
+    clusterOpSteps:
+    - backupClusterOpStep:
+        subjects:
+        - jobConfigurationSubject: {
+            }
+        - systemConfigurationSubject:
+            omitMasterKey: false
+        format:
+          tarGzFormat: {
+            }
+        retentionPolicy:
+          upToNRetentionPolicy:
+            n: 3
+        safeDelaySeconds: 0
+        store:
+          s3Store:
+            usePathStyleUrl: false
+            bucketName: ${S3BUCKET}
+            sse: true
+            useHttp: false
+            bucketFolder: ${S3BUCKET_FOLDER}
+            credentialsId: ''
+            region: ${AWS_REGION}
+    timeoutSeconds: 300
+    itemSource:
+      jenkinsRootItemSource: {
+        }
+    filters:
+    - isMasterOnlineFilter: {
+        }
+    - isManagedMasterFilter: {
+        }
+    - matchingPath:
+        pattern: '*'
+    inParallel: 10
+    noRetries: 0
+scm:
+  none: {
+    }
+scmCheckoutStrategy:
+  standard: {
+    }
