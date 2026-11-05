@@ -42,6 +42,7 @@ Further CloudBees documentation:
 | [restoreManyControllersFromS3.sh](restoreManyControllersFromS3.sh) | Reads `controllers-backups.json` and restores many controllers in parallel by calling `restoreControllerfromS3.sh` for each. |
 | [.env.template](.env.template) | Template with comments for the `.env` file that the scripts source. Copy it to `.env` and fill in your values. `.env` is git-ignored. |
 | [Dockerfile](Dockerfile), [dockerbuild.sh](dockerbuild.sh) | Optional: a custom Docker image with the tools the restore script needs (`aws-cli`, `kubectl`, `tar`) and a helper script to build it. |
+| [DIAGRAM.md](DIAGRAM.md) | End-to-end flow and sequence diagrams (Mermaid) of backup, mapping and restore. |
 | [backup.sh](backup.sh) | Simple script to back up a single controller's `jenkins_home` to an S3 bucket. See the [appendix](#appendix-manual-backup-with-backupsh). |
 
 ---

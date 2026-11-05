@@ -34,6 +34,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 source .env
+#source .env-cjoc-level
 
 : "${CJOC_TOKEN:?Set CJOC_TOKEN to <user>:<api-token>}"
 : "${CBCI_URL:?Set CBCI_URL to the base URL, e.g. https://ci.example.com}"
