@@ -116,7 +116,7 @@ if [ "$unmatched" -gt 0 ]; then
                         DATA=$(jq '
                             (.unmatchedBackups | map(select((.possibleControllers | length) == 1))) as $sug
                             | .controllers |= map(. as $c
-                                | .backups += ($sug | map(select(.possibleControllers[0] == $c.fullName) | {file, date})))
+                                | .backups += ($sug | map(select(.possibleControllers[0] == $c.fullName) | {file, date, increment})))
                             | .unmatchedBackups |= map(select((.possibleControllers | length) != 1))' <<< "$DATA")
                         echo "[INFO] Suggestions applied (in memory only, $BACKUPS_FILE is not changed)."
                         break
@@ -147,7 +147,7 @@ plan=$(jq -r '
     .controllers
     | map(select(.backups | length > 0))
     | sort_by(.statefulSet)
-    | .[] | [.statefulSet, .podName, (.backups | max_by(.date) | .file), .fullName] | @tsv' <<< "$DATA")
+    | .[] | [.statefulSet, .podName, (.backups | max_by([(.increment != null), (.increment // 0), .date]) | .file), .fullName] | @tsv' <<< "$DATA")
 
 # Apply --only / --exclude (comma separated; fullName or Kubernetes name).
 in_list() { case ",$2," in *",$1,"*) return 0 ;; *) return 1 ;; esac; }

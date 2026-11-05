@@ -90,7 +90,7 @@ if [ -n "$CONTROLLER" ]; then
         .controllers as $c
         | ($c | map(select(.fullName == $n or .statefulSet == $n))) as $exact
         | (if ($exact | length) > 0 then $exact else ($c | map(select(.name == $n))) end)
-        | .[] | [.fullName, .podName, ((.backups | max_by(.date) | .file) // "")] | @tsv' "$BACKUPS_FILE")
+        | .[] | [.fullName, .podName, ((.backups | max_by([(.increment != null), (.increment // 0), .date]) | .file) // "")] | @tsv' "$BACKUPS_FILE")
     if [ -z "$matches" ]; then
         log_error "Controller '$CONTROLLER' not found in $BACKUPS_FILE."
         exit 1
