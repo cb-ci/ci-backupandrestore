@@ -221,45 +221,24 @@ $AWS_CREDS_ENV
        - |
          set -xe
          echo "Rescue pod started. Preparing to restore backup."
-
          # 1. Download the backup archive from S3 to a temporary directory.
          echo "Downloading $ARCHIVENAME from s3://$S3BUCKET/$S3BUCKET_FOLDER/..."
-         aws s3 cp "s3://$S3BUCKET/$S3BUCKET_FOLDER/$ARCHIVENAME" "/tmp/$ARCHIVENAME"
-
-         # 2. List the contents of /tmp to verify the download.
-         echo "Download complete. Listing /tmp contents:"
-         ls -ltr /tmp
-         ls -ltr /tmp/jenkins-home/
-
-         # 3. Clean all existing data from the mounted jenkins-home directory.
-         echo "Cleaning existing data from /tmp/jenkins-home/..."
-         # Delete all files and directories
-         # find /tmp/jenkins-home/ -mindepth 1 -delete
-         # Delete all files and directories, but keep certain files on the target controller
-         # https://docs.cloudbees.com/docs/cloudbees-ci-kb/latest/operations-center/how-to-reconnect-a-client-controller-stuck-on-registration
-         # The ! -path  filters might be adjusted depending on your restore usecase
-         # Enabled with the --preserve-identity flag (or PRESERVE_IDENTITY=true in .env).
+         # aws s3 cp "s3://$S3BUCKET/$S3BUCKET_FOLDER/$ARCHIVENAME" "/tmp/$ARCHIVENAME"
+         # Exclude identity/secret files when PRESERVE_IDENTITY=true so the live controller
+         # credentials are never overwritten by the backup archive.
          if [ "$PRESERVE_IDENTITY" = "true" ]; then
-           echo "Preserving controller identity files."
-           find /tmp/jenkins-home/ -mindepth 1 \\
-             ! -path "/tmp/jenkins-home/secret.key" \\
-             ! -path "/tmp/jenkins-home/secrets" \\
-             ! -path "/tmp/jenkins-home/secrets/*" \\
-             ! -path "/tmp/jenkins-home/license.xml" \\
-             ! -path "/tmp/jenkins-home/identity.key.enc" \\
-             ! -path "/tmp/jenkins-home/operations-center-cloud.xml" \\
-             ! -path "/tmp/jenkins-home/operations-center-client.xml" \\
-             ! -path "/tmp/jenkins-home/com.cloudbees.opscenter.client.plugin.OperationsCenterRootAction.xml" \\
-             -delete
+           aws s3 cp "s3://$S3BUCKET/$S3BUCKET_FOLDER/$ARCHIVENAME" - | tar -xz -C /tmp/jenkins-home \
+             --exclude='./secret.key' \
+             --exclude='./secrets' \
+             --exclude='./secrets/*' \
+             --exclude='./license.xml' \
+             --exclude='./identity.key.enc' \
+             --exclude='./operations-center-cloud.xml' \
+             --exclude='./operations-center-client.xml' \
+             --exclude='./com.cloudbees.opscenter.client.plugin.OperationsCenterRootAction.xml'
          else
-           find /tmp/jenkins-home/ -mindepth 1 -delete
+           aws s3 cp "s3://$S3BUCKET/$S3BUCKET_FOLDER/$ARCHIVENAME" - | tar -xz -C /tmp/jenkins-home
          fi
-         echo "/tmp/jenkins-home deleted. preserved files \n"
-         ls -ltr /tmp/jenkins-home
-
-         # 4. Extract the backup archive into the now-empty jenkins-home directory.
-         echo "Extracting archive to /tmp/jenkins-home/..."
-         tar -xvzf "/tmp/$ARCHIVENAME" -C /tmp/jenkins-home
          echo "Restore script finished inside pod."
       volumeMounts:
         # Mount the PVC into the container at '/tmp/jenkins-home'.
